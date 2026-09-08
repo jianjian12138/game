@@ -57,5 +57,5 @@ class ConstitutionGuard:
         return all_ok
 
 if __name__ == "__main__":
-    gdd = Path(r"D:\jianjian12138\game\design\Mindustry_Planet_War_lore_spec.md")
+    gdd = (Path(__file__).resolve().parent / 'design/Mindustry_Planet_War_lore_spec.md')
     ConstitutionGuard(gdd).run_constitution_audit()

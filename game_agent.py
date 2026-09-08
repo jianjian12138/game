@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 game_agent.py: 游戏开发多智能体工作室全能统一管理 CLI (Game Agent CLI v2.2 Novel-to-Game Edition)
-融合 49 位专家智能体、73 个专项技能、12 个生命周期 Hooks、GameFactory-3A 路由契约、Novel-to-Game 设定提取与五步可玩门禁、Book-to-Skill 著作蒸馏与 CCGS 编排中枢。
+融合 75 位专家智能体、108 个专项技能、12 个生命周期 Hooks、GameFactory-3A 路由契约、Novel-to-Game 设定提取与五步可玩门禁、Book-to-Skill 著作蒸馏与 CCGS 编排中枢。
 
-纯 Python 3.9+ 标准库实现，零外部依赖。
+纯 Python 3.10+ 标准库实现，零外部依赖。
 """
 import sys
 import os
@@ -22,8 +22,9 @@ if sys.platform == "win32":
 ROOT = Path(__file__).resolve().parent
 
 def cmd_agents(args):
-    from core.registry import STUDIO_DEPARTMENTS
-    print("[AGENTS] 游戏开发多智能体工作室 49 位专家花名册:\n")
+    from core.registry import STUDIO_DEPARTMENTS, get_all_agents
+    all_agents = get_all_agents()
+    print(f"[AGENTS] 游戏开发多智能体工作室 {len(all_agents)} 位专家花名册:\n")
     for dept_id, dept in STUDIO_DEPARTMENTS.items():
         print(f"【{dept['name']}】({dept['description']})")
         for a in dept["agents"]:
@@ -32,7 +33,7 @@ def cmd_agents(args):
 
 def cmd_skills(args):
     from core.registry import GAME_SKILLS
-    print(f"[SKILLS] 游戏开发 73 个专项技能大典 (共 {len(GAME_SKILLS)} 项):\n")
+    print(f"[SKILLS] 游戏开发 108 个专项技能大典 (共 {len(GAME_SKILLS)} 项):\n")
     cats = {}
     for s in GAME_SKILLS:
         cats.setdefault(s["category"], []).append(s)
@@ -148,7 +149,7 @@ def cmd_diff(args):
 
 def cmd_reverse(args):
     from pipeline.ground_truth_reverser import GroundTruthReverser
-    src_p = Path(args.source) if args.source else Path("D:/jianjian12138/Mindustry")
+    src_p = Path(args.source) if args.source else Path(str(Path.cwd() / "Mindustry"))
     print(f"[REVERSE] 启动源码逆向工程与时钟常量冻结: {src_p}...")
     reverser = GroundTruthReverser(src_p)
     reverser.reverse_engineer_spec()
@@ -201,7 +202,7 @@ def cmd_scene(args):
     compiler.generate_procedural_map_spec(theme=theme)
 
 def cmd_create(args):
-    title = args.title or "反恐前线：幽灵突击 3D"
+    title = getattr(args, "title_pos", None) or getattr(args, "title", None) or "反恐前线：幽灵突击 3D"
     genre = args.genre or "3D FPS"
     engine_choice = getattr(args, "engine", "web")
     custom_rules = getattr(args, "rules", "") or getattr(args, "custom_rules", "")
@@ -573,8 +574,8 @@ def main():
 
     sub = parser.add_subparsers(dest="command", help="子命令")
 
-    sub.add_parser("agents", help="列出 49 位专家智能体")
-    sub.add_parser("skills", help="列出 73 个游戏开发技能")
+    sub.add_parser("agents", help="列出 75 位专家智能体")
+    sub.add_parser("skills", help="列出 108 个游戏开发技能")
     sub.add_parser("hooks", help="查看 12 个生命周期钩子")
     
     p_route = sub.add_parser("route", help="执行 GameFactory-3A 前置路由锁定")
@@ -628,7 +629,8 @@ def main():
     p_scene.add_argument("--theme", type=str, default="ground_zero_canyon", help="场景主题")
 
     p_create = sub.add_parser("create", parents=[llm_parent], help="一键启动流水线创建游戏 (支持 fast/llm/hybrid 模式)")
-    p_create.add_argument("--title", type=str, default="反恐前线：幽灵突击 3D", help="游戏名称")
+    p_create.add_argument("title_pos", nargs="?", default=None, help="游戏名称 (位置参数)")
+    p_create.add_argument("--title", type=str, default=None, help="游戏名称 (选项参数)")
     p_create.add_argument("--genre", type=str, default="3D FPS", help="游戏品类")
     p_create.add_argument("--engine", type=str, choices=["web", "godot", "rust"], default="web", help="底层引擎与重构语言")
     p_create.add_argument("--rules", "--custom-rules", dest="rules", type=str, default="", help="自定义规则或玩法约束")

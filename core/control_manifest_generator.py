@@ -48,5 +48,5 @@ class ControlManifestGenerator:
 
 if __name__ == "__main__":
     generator = ControlManifestGenerator()
-    out = generator.generate_manifest_document(Path(r"D:\jianjian12138\game\docs\architecture\control_manifest.md"))
+    out = generator.generate_manifest_document((Path(__file__).resolve().parent / 'docs/architecture/control_manifest.md'))
     print(f"=== ControlManifestGenerator: 程序员控制红线大典已生成 -> {out.name} ===")

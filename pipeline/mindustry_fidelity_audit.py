@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 r"""
 mindustry_fidelity_audit.py: Mindustry 1:1 游戏体验与视觉还原度专项质检中枢
-对标 D:\jianjian12138\Mindustry 官方原版源码与游玩手感，严格审查 7 大核心要素：
+对标 Mindustry 官方原版源码与游玩手感，严格审查 7 大核心要素：
   1. placement_drawer: 右下角 4 列建造抽屉、6 大分类切换标签与造价消耗浮动卡片
   2. core_items_display: 左上角悬浮式核心库存看板，杜绝全屏粗糙横幅
   3. dual_lane_conveyor: 双轨双车道输送带物料并发系统 (xs = -0.25 / +0.25) 与流向箭头
@@ -57,5 +57,5 @@ class MindustryFidelityAuditor:
         return all_passed
 
 if __name__ == "__main__":
-    auditor = MindustryFidelityAuditor(Path(r"D:\jianjian12138\game\output\mindustry_rust_full\src"))
+    auditor = MindustryFidelityAuditor((Path(__file__).resolve().parent / 'output/mindustry_rust_full/src'))
     auditor.run_audit()

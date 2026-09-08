@@ -4,8 +4,7 @@ DSL Parser — YAML/JSON → AST 解析器
 支持从文件或字符串解析，可选方言预处理钩子。
 """
 
-from __future__ import annotations
-import yaml
+import core.yaml_compat as yaml
 import json
 from pathlib import Path
 from typing import Any, Optional

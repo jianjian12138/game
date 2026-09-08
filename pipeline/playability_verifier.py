@@ -74,5 +74,5 @@ class PlayabilityVerifier:
         return all_passed
 
 if __name__ == "__main__":
-    verifier = PlayabilityVerifier(Path(r"D:\jianjian12138\game\output\mindustry_rust_full\Mindustry_Rust_Game.exe"))
+    verifier = PlayabilityVerifier((Path(__file__).resolve().parent / 'output/mindustry_rust_full/Mindustry_Rust_Game.exe'))
     verifier.run_full_5step_verification()

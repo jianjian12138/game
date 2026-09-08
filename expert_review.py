@@ -32,7 +32,7 @@ class ExpertAcceptancePanel:
         self.gate = ReleaseGate()
         self.reviews: List[Dict[str, Any]] = []
 
-    def conduct_full_review(self) -> Dict[str, Any]:
+    def conduct_full_review(self, write_report: bool = True) -> Dict[str, Any]:
         print("================================================================================")
         print("[PANEL] ANTIGRAVITY AI-NATIVE GAME ENGINE - EXPERT ACCEPTANCE REVIEW")
         print("================================================================================")
@@ -61,7 +61,9 @@ class ExpertAcceptancePanel:
         all_approved = all(r["verdict"] == "APPROVED" for r in self.reviews)
         overall_score = round(sum(r["score"] for r in self.reviews) / len(self.reviews), 1)
 
-        report_path = self._generate_acceptance_report(all_approved, overall_score)
+        report_path = None
+        if write_report:
+            report_path = self._generate_acceptance_report(all_approved, overall_score)
 
         print("================================================================================")
         decision_str = "UNANIMOUSLY APPROVED" if all_approved else "REJECTED"
@@ -464,7 +466,7 @@ class ExpertAcceptancePanel:
 # (Antigravity Game Platform — Final Expert Acceptance Certificate)
 
 > **验收状态**: **{'✅ 全票通过 (UNANIMOUSLY APPROVED)' if approved else '❌ 驳回 (REJECTED)'}**  
-> **终审综合得分**: **{overall_score} / 100** (由 8 大领域实际断言加权计算，零硬编码)  
+> **终审综合得分**: **{overall_score} / 100** (由 8 大领域实际断言综合均值计算，零硬编码)  
 > **验收时间**: {timestamp}  
 > **智能体组织**: 平台内嵌 {depts_count} 大部门、{agents_count} 位专家智能体与 {skills_count} 个专业技能包  
 > **本地产物状态**: output/ 目录当前共有 {out_file_count} 个文件，占用磁盘 {out_size_mb} MB  
@@ -503,4 +505,5 @@ class ExpertAcceptancePanel:
 
 if __name__ == "__main__":
     panel = ExpertAcceptancePanel()
-    panel.conduct_full_review()
+    res = panel.conduct_full_review()
+    sys.exit(0 if res.get("all_approved") else 1)

@@ -161,7 +161,7 @@ class GDDGenerator:
         gdd_template = f"""# 🎮 游戏设计规格书 (Game Design Document - GDD)
 > **项目名称**: 《{title}》  
 > **工业版本**: v1.0.0 Commercial Release  
-> **负责团队**: Game Dev Agent Studios 49 位专家智能体矩阵  
+> **负责团队**: Game Dev Agent Studios 75 位专家智能体矩阵  
 > **发布标准**: 包含完整 Web 独立工程与 Godot 4 跨端商业工程包  
 
 ---

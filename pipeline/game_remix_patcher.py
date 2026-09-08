@@ -516,7 +516,7 @@ class PlayableWebBundler:
         if (keys['KeyD'] || keys['ArrowRight']) moveX += 1;
         if (keys['KeyW'] || keys['ArrowUp']) moveY -= 1;
         if (keys['KeyS'] || keys['ArrowDown']) moveY += 1;
-        const len = Math.hypot(moveX, moveY);
+        const len = Math.sqrt(moveX * moveX + moveY * moveY);
         if (len > 0) {{
           player.x += (moveX / len) * player.speed * dt;
           player.y += (moveY / len) * player.speed * dt;
@@ -540,7 +540,7 @@ class PlayableWebBundler:
         h.y += h.vy * dt;
 
         // Collision with player
-        const dist = Math.hypot(h.x - player.x, h.y - player.y);
+        const dist = Math.sqrt((h.x - player.x)**2 + (h.y - player.y)**2);
         if (dist < h.radius + player.size && player.invulnTimer <= 0) {{
           lives -= 1;
           player.invulnTimer = 1.0; // i-frame
@@ -565,7 +565,7 @@ class PlayableWebBundler:
         c.y += c.vy * dt;
         c.rot += dt * 3.0;
 
-        const dist = Math.hypot(c.x - player.x, c.y - player.y);
+        const dist = Math.sqrt((c.x - player.x)**2 + (c.y - player.y)**2);
         if (dist < c.radius + player.size) {{
           score += 1;
           uiScore.innerText = `★ ${{score}}`;

@@ -94,6 +94,6 @@ stages:
         return all_ok
 
 if __name__ == "__main__":
-    orchestrator = EacPipelineOrchestrator(Path(r"D:\jianjian12138\game"))
+    orchestrator = EacPipelineOrchestrator((Path(__file__).resolve().parent))
     orchestrator.generate_cnb_declarative_spec()
     orchestrator.execute_eac_pipeline_locally()

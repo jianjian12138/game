@@ -2,7 +2,7 @@
 """
 commercial_systems.py: 12 大商业级标准化游戏核心子系统通用代码库
 涵盖战斗打击感 (Juice)、技能 Buff、背包、等级天赋、经济商城、任务与本地持久化存档，
-供 49 位智能体直接组装生成具备真正 Steam/移动端高完成度的商业游戏。
+供 75 位智能体直接组装生成具备真正 Steam/移动端高完成度的商业游戏。
 """
 
 class CommercialSystemsLibrary:

@@ -291,12 +291,13 @@ class ReleaseGate:
 
 ## 1. 核心工业子系统回归验证矩阵
 
-| 审查子系统 | 耗时 | 判定结果 | 备注 |
+| 审查子系统 | 耗时 | 判定结果 | 验证方式 |
 | :--- | :---: | :---: | :--- |
 """
         for s in suite_res:
             st = "✅ PASSED" if s["passed"] else f"❌ FAIL ({s.get('error', 'Unknown')})"
-            content += f"| **{s['suite']}** | {s.get('elapsed_sec', 0)}s | {st} | 零 Mock 刚性验证 |\n"
+            mode = "自动化断言实测" if s["passed"] else "未通过"
+            content += f"| **{s['suite']}** | {s.get('elapsed_sec', 0)}s | {st} | {mode} |\n"
 
         conclusion_detail = (
             f"- 全部 **{total_count} 大核心系统** 刚性断言 100% 通过；\n- 微信小游戏首包资源严格控制在 **{budget_res.get('first_package_mb', 0)}MB**，符合分包红线；\n- 正式颁发 **商业化发布与多端分发许可**！"

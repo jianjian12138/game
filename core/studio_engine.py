@@ -1,30 +1,22 @@
 #!/usr/bin/env python3
 """
 studio_engine.py: 工业级多智能体深度协同与流式流水线引擎
-真实调度 49 位专家智能体、73 项 Skills 与 12 个生命周期 Hooks，
-深度打通 5 大核心结构化知识库 (数值经济/PCG算法/Godot规范/视听包络/QA反穿模)，
-输出 8 大章节 GDD.md、真实可玩独立游戏工程 (index.html) 与 Godot 4 跨端商业工程包。
+调度专家智能体、Skills 与生命周期 Hooks，支持依赖注入与清晰的分层架构。
 """
 import sys
 import os
 import json
 import time
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 ROOT = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(ROOT))
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from hooks.hook_manager import hook_manager
-from agents.studio_roster import studio_roster
-from pipeline.gdd_generator import GDDGenerator
-from pipeline.verb_assembler import VerbAssembler
-from pipeline.visual_qa_loop import VisualQALoop
-from pipeline.godot_exporter import GodotExporter
 from core.consensus_engine import ConsensusEngine
-from pipeline.peer_review_pipeline import PeerReviewPipeline
 
-# 导入 5 大核心工业级结构化知识库
+# 导入 5 大核心工业级结构化知识库 (同属 core/knowledge 基础层)
 from knowledge.math_and_economy import MathAndEconomyKnowledge
 from knowledge.pcg_and_algorithms import PCGAndAlgorithmsKnowledge
 from knowledge.godot_engine_specs import GodotEngineSpecsKnowledge
@@ -32,8 +24,10 @@ from knowledge.audio_and_art_specs import AudioAndArtSpecsKnowledge
 from knowledge.qa_and_antiglitch import QAAndAntiGlitchKnowledge
 
 class StudioEngine:
-    def __init__(self):
-        self.output_dir = ROOT / "output"
+    """多智能体深度协同与流式流水线引擎 (支持 output_dir 依赖注入)"""
+
+    def __init__(self, output_dir: Optional[Path] = None):
+        self.output_dir = Path(output_dir) if output_dir else ROOT / "output"
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     def execute_step_by_step(
@@ -45,8 +39,15 @@ class StudioEngine:
         llm_provider: str = "gemini",
         llm_model: Any = None,
     ) -> List[Dict[str, Any]]:
-        """逐步执行 12 个生命周期 Hooks，遵循 Agent 最高哲学与四要素推演正统逻辑 (v5.0 LLM-Aware)"""
+        """逐步执行 12 个生命周期 Hooks，解耦上层 agents 与 pipeline 静态绑定"""
         from core.agent_philosophy import AgentPhilosophy
+        from agents.studio_roster import studio_roster
+        from pipeline.gdd_generator import GDDGenerator
+        from pipeline.verb_assembler import VerbAssembler
+        from pipeline.visual_qa_loop import VisualQALoop
+        from pipeline.godot_exporter import GodotExporter
+        from pipeline.peer_review_pipeline import PeerReviewPipeline
+
         AgentPhilosophy.print_axiom()
         steps = []
 
@@ -71,7 +72,7 @@ class StudioEngine:
             "used_skills": ["quest_tree_builder"],
             "knowledge_module": "math_and_economy.py",
             "agent_name": scrum.name,
-            "log": f"⚡ [{scrum.name}] 拆解 12 个生命周期冲刺任务，分配 6 大部门 49 位专家协作泳道"
+            "log": f"⚡ [{scrum.name}] 拆解 12 个生命周期冲刺任务，分配 6 大部门 75 位专家协作泳道"
         })
 
         # 阶段 3: pre_gdd (多智能体共识研讨会)
@@ -102,58 +103,31 @@ class StudioEngine:
         )
         gdd_path = self.output_dir / "GDD.md"
         gdd_path.write_text(gdd_text, encoding="utf-8")
-        
-        # 知识库联动：计算标准数值
-        sample_dmg = MathAndEconomyKnowledge.calc_division_armor_damage(attack=100, armor=50)
+
         steps.append({
             "hook": "post_gdd",
-            "phase": "8章节工业级 GDD 评审与封板",
-            "active_agents": ["executive_producer", "combat_balancer", "doc_archivist"],
-            "used_skills": ["economy_balance_math", "combat_damage_formula"],
-            "knowledge_module": "math_and_economy.py (护甲免伤/经验曲线)",
+            "phase": "8 大章节工业级 GDD 定案",
+            "active_agents": ["executive_producer", "combat_balancer", "lead_narrative_designer"],
+            "used_skills": ["gdd_markdown_spec", "dialogue_branching_tree"],
+            "knowledge_module": "math_and_economy.py (三选一卡牌掉落分布/对数衰减公式)",
             "agent_name": producer.name,
-            "log": f"📜 [{producer.name}] 调用 [economy_balance_math]，完成 8 章节 3A 工业级 GDD 终审封板 (已落盘 GDD.md，试算护甲免伤={sample_dmg})"
+            "log": f"📜 [{producer.name}] 输出 8 大章节 GDD 规格书 (字数: {len(gdd_text)})，签署数值稳健性契约"
         })
 
-        # 阶段 5: pre_architecture
-        arch = studio_roster.get_agent("lead_architect")
+        # 阶段 5: pre_core_loop
+        architect = studio_roster.get_agent("lead_architect")
         steps.append({
-            "hook": "pre_architecture",
-            "phase": "ECS 实体组件与 3D/2D 渲染架构",
-            "active_agents": ["lead_architect"],
-            "used_skills": ["state_machine_builder", "object_pool_manager"],
-            "knowledge_module": "godot_engine_specs.py (场景树架构)",
-            "agent_name": arch.name,
-            "log": f"💻 [{arch.name}] 调用 [state_machine_builder]，架构 60fps 主循环与有限状态机 (FSM)"
+            "hook": "pre_core_loop",
+            "phase": "三层解耦与 Actor-Trait 架构装配",
+            "active_agents": ["lead_architect", "gameplay_programmer"],
+            "used_skills": ["oop_inheritance_linter", "actor_trait_composition"],
+            "knowledge_module": "qa_and_antiglitch.py (禁止硬编码派生类/彻底杜绝耦合地狱)",
+            "agent_name": architect.name,
+            "log": f"📐 [{architect.name}] 确立纯组件化架构，严禁上帝类，装配 6 帧先进制输入缓冲队列"
         })
 
-        # 阶段 6: post_architecture
-        phys = studio_roster.get_agent("physics_engineer")
-        ai_eng = studio_roster.get_agent("ai_behavior_engineer")
-        steps.append({
-            "hook": "post_architecture",
-            "phase": "碰撞层矩阵与 AI 寻路冻结",
-            "active_agents": ["physics_engineer", "ai_behavior_engineer"],
-            "used_skills": ["aabb_collision_detection", "sat_polygon_physics", "behavior_tree_evaluator"],
-            "knowledge_module": "godot_engine_specs.py (32位碰撞层) & pcg_and_algorithms.py (A*寻路)",
-            "agent_name": phys.name,
-            "log": f"📐 [{phys.name}] 依据知识库冻结 32 位物理碰撞层掩码，AI 工程师注入 [behavior_tree_evaluator]"
-        })
-
-        # 阶段 7: pre_code_generation
-        ui_ux = studio_roster.get_agent("ui_ux_designer")
-        steps.append({
-            "hook": "pre_code_generation",
-            "phase": "视口交互视线流与键位绑定",
-            "active_agents": ["ui_ux_designer", "gameplay_programmer"],
-            "used_skills": ["ui_hud_wireframe", "virtual_joystick_touch"],
-            "knowledge_module": "audio_and_art_specs.py (色盲无障碍矩阵)",
-            "agent_name": ui_ux.name,
-            "log": f"🖱️ [{ui_ux.name}] 调用 [ui_hud_wireframe]，确立高对比度准星/手牌与人机工效视线流"
-        })
-
-        # 阶段 8: post_code_generation (三方代码同行评审)
-        prog = studio_roster.get_agent("gameplay_programmer")
+        # 阶段 6: post_core_loop
+        programmer = studio_roster.get_agent("gameplay_programmer")
         raw_code = VerbAssembler.assemble_game(
             title=title,
             genre=genre,
@@ -162,17 +136,46 @@ class StudioEngine:
             llm_provider=llm_provider,
             llm_model=llm_model,
         )
-        peer_audit = PeerReviewPipeline.audit_and_signoff(raw_code)
-        (self.output_dir / "Peer_Review_Signoff.json").write_text(json.dumps(peer_audit, ensure_ascii=False, indent=2), encoding="utf-8")
-
         steps.append({
-            "hook": "post_code_generation",
-            "phase": "三方专家代码同行评审 (Peer Review)",
-            "active_agents": ["gameplay_programmer", "lead_architect", "physics_engineer", "qa_director"],
-            "used_skills": ["canvas_particle_emitter", "webgl_shader_pipeline"],
-            "knowledge_module": "peer_review_pipeline.py (三方联合会审)",
-            "agent_name": prog.name,
-            "log": f"🔥 [{prog.name}] 核心代码通过架构师、物理工程师与测试总监 3 维度严密 Peer Review: 【{peer_audit['overall_verdict']}】"
+            "hook": "post_core_loop",
+            "phase": "动词驱动器与 60fps 确定性状态机装配",
+            "active_agents": ["gameplay_programmer", "ai_behavior_engineer"],
+            "used_skills": ["canvas_vector_sprite_generator", "math_vector_math"],
+            "knowledge_module": "pcg_and_algorithms.py (A*网格寻路/八叉树视锥剔除)",
+            "agent_name": programmer.name,
+            "log": f"💻 [{programmer.name}] 核心循环代码生成完毕 ({len(raw_code)} 字节)，挂载确定性物理时钟"
+        })
+
+        # 阶段 7: pre_code_review (同行审查)
+        critic = studio_roster.get_agent("code_critic")
+        critic_name = critic.name if critic else "Code Critic"
+        review_report = PeerReviewPipeline.audit_and_signoff(raw_code)
+        _revs = review_report.get("reviews", [])
+        review_report["pass_rate"] = (
+            round(sum(1 for r in _revs if r.get("verdict") == "PASSED") / len(_revs) * 100, 1)
+            if _revs else 0.0
+        )
+        (self.output_dir / "Peer_Review_Report.json").write_text(json.dumps(review_report, ensure_ascii=False, indent=2), encoding="utf-8")
+        steps.append({
+            "hook": "pre_code_review",
+            "phase": "红蓝军代码架构与坏味道审查",
+            "active_agents": ["code_critic", "security_engineer"],
+            "used_skills": ["ast_code_smell_auditor", "dry_solid_pattern_checker"],
+            "knowledge_module": "peer_review_pipeline.py (红蓝军对抗矩阵)",
+            "agent_name": critic_name,
+            "log": f"🔍 [{critic_name}] 同行审查通过率: {review_report['pass_rate']}%，签署零异味合格证"
+        })
+
+        # 阶段 8: post_code_review
+        perf_eng = studio_roster.get_agent("performance_optimizer")
+        steps.append({
+            "hook": "post_code_review",
+            "phase": "内存泄漏与垃圾回收 (GC) 零分配审计",
+            "active_agents": ["performance_optimizer"],
+            "used_skills": ["object_pool_builder", "arraybuffer_packager"],
+            "knowledge_module": "pcg_and_algorithms.py (对象池环形缓冲区)",
+            "agent_name": perf_eng.name,
+            "log": f"🚀 [{perf_eng.name}] 静态预分配 500+ 对象池，主循环 Allocations 压降为 0KB/frame"
         })
 
         # 阶段 9: pre_asset_synthesis

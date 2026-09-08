@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 studio_roster.py: 49 个游戏工作室专家智能体实例花名册
-自动从 registry 加载并实例化全部 6 大部门 49 位专家。
+自动从 registry 加载并实例化全部 6 大部门 75 位专家。
 """
 import sys
 from pathlib import Path

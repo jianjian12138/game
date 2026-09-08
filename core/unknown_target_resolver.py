@@ -58,5 +58,5 @@ class UnknownTargetResolver:
 
 if __name__ == "__main__":
     resolver = UnknownTargetResolver()
-    out = resolver.generate_target_document("concept_stage", Path(r"D:\jianjian12138\game\design\unknown_validation_target.md"))
+    out = resolver.generate_target_document("concept_stage", (Path(__file__).resolve().parent / 'design/unknown_validation_target.md'))
     print(f"=== UnknownTargetResolver: 靶心决策书已生成 -> {out.name} ===")

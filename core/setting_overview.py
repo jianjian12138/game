@@ -81,7 +81,7 @@ class SettingOverviewRouter:
         return preset
 
 if __name__ == "__main__":
-    router = SettingOverviewRouter(Path(r"D:\jianjian12138\game"))
+    router = SettingOverviewRouter((Path(__file__).resolve().parent))
     res = router.route_and_lock("rust_macroquad_2d")
     print(f"=== SettingOverviewRouter: 路由规则已成功锁定并生成 setting_overview.md ===")
     print(f"  [LOCKED ENGINE] {res['engine']}")

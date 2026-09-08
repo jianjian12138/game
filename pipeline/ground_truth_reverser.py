@@ -18,7 +18,7 @@ from typing import Dict, List, Any, Optional
 
 class GroundTruthReverser:
     def __init__(self, source_root: Optional[Path] = None):
-        self.source_root = source_root or Path("D:/jianjian12138/Mindustry")
+        self.source_root = source_root or Path(str(Path.cwd() / "Mindustry"))
 
     def reverse_engineer_spec(self, target_output_file: Optional[Path] = None) -> Dict[str, Any]:
         """静态分析参考源码，提取 1:1 权威规则规约"""

@@ -1358,7 +1358,7 @@ class CyberSurvivorGameGenerator:
         const rect = joyZone.getBoundingClientRect();
         const dx = touch.clientX - rect.left - joyCenter.x;
         const dy = touch.clientY - rect.top - joyCenter.y;
-        const dist = Math.hypot(dx, dy);
+        const dist = Math.sqrt(dx * dx + dy * dy);
         const maxDist = 45;
         const clampedDist = Math.min(dist, maxDist);
         const angle = Math.atan2(dy, dx);
@@ -1397,7 +1397,7 @@ class CyberSurvivorGameGenerator:
     if (keys['s'] || keys['arrowdown']) ky += 1;
     if (keys['a'] || keys['arrowleft']) kx -= 1;
     if (keys['d'] || keys['arrowright']) kx += 1;
-    const len = Math.hypot(kx, ky);
+    const len = Math.sqrt(kx * kx + ky * ky);
     if (len > 0) {{
       inputDir.x = kx / len;
       inputDir.y = ky / len;
@@ -1461,7 +1461,7 @@ class CyberSurvivorGameGenerator:
       if (!target && enemies.length > 0) {{
         let minD = Infinity;
         enemies.forEach(en => {{
-          const d = Math.hypot(en.x - player.x, en.y - player.y);
+          const d = Math.sqrt((en.x - player.x)**2 + (en.y - player.y)**2);
           if (d < minD) {{ minD = d; target = en; }}
         }});
       }}
@@ -1493,7 +1493,7 @@ class CyberSurvivorGameGenerator:
     if (!boss || enemies.length < 15) {{
       if (Math.random() < 0.045) {{
         const angle = Math.random() * Math.PI * 2;
-        const dist = Math.hypot(w, h) / 2 + 30;
+        const dist = Math.sqrt(w * w + h * h) / 2 + 30;
         const isSupervisor = Math.random() < Math.min(0.35, gameTimeSec * 0.008);
         enemies.push({{
           x: player.x + Math.cos(angle) * dist,
@@ -1530,7 +1530,7 @@ class CyberSurvivorGameGenerator:
       const en = enemies[i];
       const edx = player.x - en.x;
       const edy = player.y - en.y;
-      const dist = Math.hypot(edx, edy);
+      const dist = Math.sqrt(edx * edx + edy * edy);
       if (dist > 0) {{
         en.x += (edx / dist) * en.speed;
         en.y += (edy / dist) * en.speed;
@@ -1554,7 +1554,7 @@ class CyberSurvivorGameGenerator:
       bull.life -= dt;
       let hit = false;
 
-      if (boss && Math.hypot(bull.x - boss.x, bull.y - boss.y) < bull.radius + boss.radius) {{
+      const bdx = bull.x - (boss ? boss.x : 0), bdy = bull.y - (boss ? boss.y : 0), brSum = bull.radius + (boss ? boss.radius : 0); if (boss && (bdx*bdx + bdy*bdy < brSum*brSum)) {{
         hit = true;
         const isCrit = Math.random() < player.critChance;
         const realDmg = Math.floor(bull.damage * (isCrit ? 2.0 : 1.0));
@@ -1574,7 +1574,7 @@ class CyberSurvivorGameGenerator:
       if (!hit) {{
         for (let e = enemies.length - 1; e >= 0; e--) {{
           const en = enemies[e];
-          if (Math.hypot(bull.x - en.x, bull.y - en.y) < bull.radius + en.radius) {{
+          const bex = bull.x - en.x, bey = bull.y - en.y, berSum = bull.radius + en.radius; if (bex*bex + bey*bey < berSum*berSum) {{
             hit = true;
             const isCrit = Math.random() < player.critChance;
             const realDmg = Math.floor(bull.damage * (isCrit ? 2.0 : 1.0));
@@ -1614,7 +1614,7 @@ class CyberSurvivorGameGenerator:
       const gem = gems[g];
       const gdx = player.x - gem.x;
       const gdy = player.y - gem.y;
-      const gdist = Math.hypot(gdx, gdy);
+      const gdist = Math.sqrt(gdx * gdx + gdy * gdy);
       if (gdist < magnetRange) {{
         gem.x += (gdx / gdist) * 7.5;
         gem.y += (gdy / gdist) * 7.5;
@@ -2170,6 +2170,18 @@ ctx.fillText('{title} 正在运行...', canvas.width / 2, canvas.height / 2);
 # -----------------------------------------------------------------------------
 class CommercialGameFactory:
     """商业小游戏一键生产调度中心"""
+
+    @classmethod
+    def build_cyber_survivor(cls, output_base: Optional[Path] = None) -> str:
+        """返回 CyberSurvivor 完整 HTML 源码，若提供 output_base 则写入文件"""
+        html = CyberSurvivorGameGenerator.generate_full_html()
+        if output_base is not None:
+            out_path = Path(output_base)
+            if out_path.is_dir() or not out_path.suffix:
+                out_path = out_path / "index.html"
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(html, encoding="utf-8")
+        return html
 
     @classmethod
     def build_benchmark_game(cls, output_base: Optional[Path] = None) -> Dict[str, Any]:

@@ -32,13 +32,25 @@ class DataDrivenCompiler:
         lore = domain_model["story_goals"]["lore"]
         primary_obj = domain_model["story_goals"]["primary_objective"]
 
-        # 绑定高清透明精灵图路径
+        # 绑定自研矢量高质感精灵图 Data URI (零幽灵外部引用，零网络开销)
+        import base64
+        def _make_svg_sprite(color: str, symbol: str, is_boss: bool = False) -> str:
+            size = 64 if not is_boss else 96
+            svg = (
+                f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">'
+                f'<circle cx="{size//2}" cy="{size//2}" r="{size//2 - 4}" fill="{color}" stroke="#ffffff" stroke-width="3"/>'
+                f'<text x="50%" y="55%" font-size="{size//2}" text-anchor="middle" dominant-baseline="middle">{symbol}</text>'
+                f'</svg>'
+            )
+            b64 = base64.b64encode(svg.encode("utf-8")).decode("ascii")
+            return f"data:image/svg+xml;base64,{b64}"
+
         sprite_map = {
-            "char_warrior": "assets/sprites/hero_warrior.png",
-            "char_ranger": "assets/sprites/hero_ranger.png",
-            "char_mage": "assets/sprites/hero_mage.png",
-            "enemy_normal": "assets/sprites/enemy_monster.png",
-            "boss_titan": "assets/sprites/boss_titan.png"
+            "char_warrior": _make_svg_sprite("#e63946", "⚔️"),
+            "char_ranger": _make_svg_sprite("#2a9d8f", "🏹"),
+            "char_mage": _make_svg_sprite("#9d4edd", "🔮"),
+            "enemy_normal": _make_svg_sprite("#e76f51", "👾"),
+            "boss_titan": _make_svg_sprite("#d62828", "👹", is_boss=True)
         }
         sprite_map_json = json.dumps(sprite_map, ensure_ascii=False)
 
@@ -168,7 +180,7 @@ class DataDrivenCompiler:
         const container = document.getElementById('char-selection-container');
         container.innerHTML = CHARACTERS_DATA.map(c => `
           <div class="char-card" id="card-${{c.id}}" onclick="GameApp.selectChar('${{c.id}}')">
-            <img class="char-portrait-img" src="${{SPRITE_MAP[c.id]}}" alt="${{c.name}}" />
+            <img class="char-portrait-img" data-char-id="${{c.id}}" alt="${{c.name}}" />
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span class="char-name" style="color:${{c.color}}">${{c.name}}</span>
             </div>
@@ -339,7 +351,7 @@ class DataDrivenCompiler:
             if (player.knifeTimer >= interval && enemies.length > 0) {{
               player.knifeTimer = 0;
               const target = enemies.reduce((prev, curr) => {{
-                return Math.hypot(curr.x - player.x, curr.y - player.y) < Math.hypot(prev.x - player.x, prev.y - player.y) ? curr : prev;
+                const d1 = (curr.x - player.x)**2 + (curr.y - player.y)**2; const d2 = (prev.x - player.x)**2 + (prev.y - player.y)**2; return d1 < d2 ? curr : prev;
               }});
               const angle = Math.atan2(target.y - player.y, target.x - player.x);
               const knifeCount = knifeLvl >= 5 ? 8 : (1 + knifeLvl);
@@ -383,7 +395,7 @@ class DataDrivenCompiler:
             b.x += b.vx; b.y += b.vy; b.life--;
             for (let j = enemies.length - 1; j >= 0; j--) {{
               const e = enemies[j];
-              if (Math.hypot(b.x - e.x, b.y - e.y) < (e.radius + 10)) {{
+              const bdx = b.x - e.x, bdy = b.y - e.y, hitR = e.radius + 10; if (bdx*bdx + bdy*bdy < hitR*hitR) {{
                 const isCrit = Math.random() < 0.28;
                 const dmg = isCrit ? b.damage * 2 : b.damage;
                 e.hp -= dmg;
@@ -401,7 +413,7 @@ class DataDrivenCompiler:
           // 烈焰触碰
           activeOrbs.forEach(orb => {{
             enemies.forEach(e => {{
-              if (Math.hypot(orb.x - e.x, orb.y - e.y) < (orb.radius + e.radius)) {{
+              const odx = orb.x - e.x, ody = orb.y - e.y, orR = orb.radius + e.radius; if (odx*odx + ody*ody < orR*orR) {{
                 e.hp -= orb.damage * 0.05;
                 if (Math.random() < 0.15) JuiceBus.spawnText(e.x, e.y - 15, Math.round(orb.damage), false);
                 if (e.hp <= 0) GameApp.killEnemy(e);
@@ -433,7 +445,7 @@ class DataDrivenCompiler:
             e.x += Math.cos(a) * e.speed;
             e.y += Math.sin(a) * e.speed;
 
-            if (Math.hypot(e.x - player.x, e.y - player.y) < (e.radius + player.radius)) {{
+            const edx = e.x - player.x, edy = e.y - player.y, erR = e.radius + player.radius; if (edx*edx + edy*edy < erR*erR) {{
               player.hp -= e.isBoss ? 1.4 : 0.4;
               JuiceBus.triggerHit(2, 5);
               updateHUD();
@@ -447,7 +459,7 @@ class DataDrivenCompiler:
 
           for (let i = gems.length - 1; i >= 0; i--) {{
             const g = gems[i];
-            const dist = Math.hypot(player.x - g.x, player.y - g.y);
+            const gdx = player.x - g.x, gdy = player.y - g.y, gDistSq = gdx*gdx + gdy*gdy; if (gDistSq >= pickupRange * pickupRange) continue; const dist = Math.sqrt(gDistSq);
             if (dist < pickupRange) {{
               const a = Math.atan2(player.y - g.y, player.x - g.x);
               g.x += Math.cos(a) * 8.5;

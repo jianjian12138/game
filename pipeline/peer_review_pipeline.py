@@ -115,13 +115,23 @@ class PeerReviewPipeline:
 
         is_fully_approved = len(violations) == 0
 
+        total_checks = len(reviews)
+        passed_checks = len([r for r in reviews if r.get("verdict") == "PASSED"])
+        pass_rate = round((passed_checks / total_checks * 100), 1) if total_checks else 100.0
+
         return {
+            "pass_rate": pass_rate,
             "is_fully_approved": is_fully_approved,
             "overall_verdict": "APPROVED_BY_PEERS" if is_fully_approved else "REJECTED_BY_CONTRACTS",
             "violations": violations,
             "reviews": reviews,
             "healed_code": code_content
         }
+
+    @classmethod
+    def conduct_peer_review(cls, code_content: str) -> Dict[str, Any]:
+        """对代码执行同行代码审查 (对齐 audit_and_signoff)"""
+        return cls.audit_and_signoff(code_content)
 
     @staticmethod
     def audit_godot_project(godot_dir: Path) -> Dict[str, Any]:

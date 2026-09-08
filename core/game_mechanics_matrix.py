@@ -97,5 +97,5 @@ class GameMechanicsMatrix:
 
 if __name__ == "__main__":
     matrix = GameMechanicsMatrix()
-    doc = matrix.generate_matrix_document(Path(r"D:\jianjian12138\game\knowledge\game_mechanics_matrix.md"))
+    doc = matrix.generate_matrix_document((Path(__file__).resolve().parent / 'knowledge/game_mechanics_matrix.md'))
     print(f"=== GameMechanicsMatrix: 机制大典已生成 -> {doc.name} ===")

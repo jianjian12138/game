@@ -55,5 +55,5 @@ class VisualQaHealer:
         return all_passed
 
 if __name__ == "__main__":
-    healer = VisualQaHealer(Path(r"D:\jianjian12138\game\output\mindustry_rust_full\src"))
+    healer = VisualQaHealer((Path(__file__).resolve().parent / 'output/mindustry_rust_full/src'))
     healer.run_juice_gate()

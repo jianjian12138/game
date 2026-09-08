@@ -51,5 +51,5 @@ class StyleLockVerifier:
         return passed
 
 if __name__ == "__main__":
-    verifier = StyleLockVerifier(Path(r"D:\jianjian12138\game\output\mindustry_rust_full\src\ui"))
+    verifier = StyleLockVerifier((Path(__file__).resolve().parent / 'output/mindustry_rust_full/src/ui'))
     verifier.run_full_style_lock_gate()

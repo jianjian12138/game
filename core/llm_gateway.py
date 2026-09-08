@@ -75,17 +75,46 @@ API_KEY_ENV: Dict[LLMProvider, str] = {
 FALLBACK_ORDER: List[LLMProvider] = [
     LLMProvider.GEMINI,
     LLMProvider.DEEPSEEK,
+    LLMProvider.OLLAMA,
     LLMProvider.OPENAI,
     LLMProvider.CLAUDE,
-    LLMProvider.OLLAMA,
 ]
+
+# ─── 响应缓存与预算熔断防护 (V5-14) ──────────────────────────────────────────
+_RESPONSE_CACHE: Dict[str, "LLMResponse"] = {}
+_MAX_CACHE_ENTRIES: int = 256
+
+class LLMBudgetTracker:
+    """LLM 成本与预算熔断监控器"""
+    total_prompt_tokens: int = 0
+    total_completion_tokens: int = 0
+    total_cost_usd: float = 0.0
+    budget_limit_usd: float = float(os.environ.get("LLM_BUDGET_LIMIT_USD", "100.0"))
+
+    @classmethod
+    def record_usage(cls, provider: str, in_tok: int, out_tok: int):
+        cls.total_prompt_tokens += in_tok
+        cls.total_completion_tokens += out_tok
+        rates = {
+            "gemini": (0.0001 / 1000, 0.0004 / 1000),
+            "deepseek": (0.00014 / 1000, 0.00028 / 1000),
+            "ollama": (0.0, 0.0),
+            "openai": (0.00015 / 1000, 0.0006 / 1000),
+            "claude": (0.003 / 1000, 0.015 / 1000),
+        }
+        in_r, out_r = rates.get(provider.lower(), (0.001 / 1000, 0.002 / 1000))
+        cls.total_cost_usd += (in_tok * in_r + out_tok * out_r)
+
+    @classmethod
+    def is_budget_exceeded(cls) -> bool:
+        return cls.total_cost_usd >= cls.budget_limit_usd
 
 
 class LLMResponse:
     """统一响应格式"""
     def __init__(self, text: str, provider: str, model: str,
                  input_tokens: int = 0, output_tokens: int = 0,
-                 success: bool = True, error: str = ""):
+                 success: bool = True, error: str = "", is_cached: bool = False):
         self.text = text
         self.provider = provider
         self.model = model
@@ -93,6 +122,7 @@ class LLMResponse:
         self.output_tokens = output_tokens
         self.success = success
         self.error = error
+        self.is_cached = is_cached
 
     def __repr__(self):
         status = "✅" if self.success else "❌"
@@ -157,10 +187,28 @@ class LLMGateway:
         system: str = "",
         max_tokens: Optional[int] = None,
         temperature: Optional[float] = None,
+        use_cache: bool = True,
+        max_retries: int = 2,
     ) -> LLMResponse:
-        """调用 LLM，自动重试并按 FALLBACK_ORDER 降级"""
+        """调用 LLM，内置指数退避重试 (Exponential Backoff)、响应缓存与按成本梯度的 FALLBACK_ORDER 自动降级"""
+        if LLMBudgetTracker.is_budget_exceeded():
+            return LLMResponse("", str(self.provider), self.model, success=False,
+                               error=f"预算熔断已触发: 当前预估消耗 ${LLMBudgetTracker.total_cost_usd:.4f} 超出上限 ${LLMBudgetTracker.budget_limit_usd:.2f}")
+
         max_tok = max_tokens or self.max_tokens
         temp = temperature if temperature is not None else self.temperature
+
+        # 检查响应缓存 (Cache Lookup)
+        cache_key = ""
+        if use_cache:
+            import hashlib
+            raw_key = f"{self.provider.value}:{self.model}:{prompt}:{system}:{max_tok}:{temp}"
+            cache_key = hashlib.sha256(raw_key.encode("utf-8")).hexdigest()
+            if cache_key in _RESPONSE_CACHE:
+                cached = _RESPONSE_CACHE[cache_key]
+                return LLMResponse(cached.text, cached.provider, cached.model,
+                                   cached.input_tokens, cached.output_tokens,
+                                   cached.success, cached.error, is_cached=True)
 
         providers_to_try = [self.provider]
         if self.auto_fallback:
@@ -174,19 +222,29 @@ class LLMGateway:
         for prov in providers_to_try:
             if self.verbose:
                 print(f"[LLMGateway] 尝试 {prov.value}/{DEFAULT_MODELS[prov]} ...", flush=True)
-            try:
-                resp = self._dispatch(prov, prompt, system, max_tok, temp)
-                if resp.success:
-                    return resp
-                last_error = resp.error
-            except Exception as e:
-                last_error = str(e)
-                if self.verbose:
-                    print(f"[LLMGateway] {prov.value} 失败: {e}", flush=True)
+
+            # 指数退避重试机制 (Retry with Exponential Backoff)
+            for attempt in range(max_retries + 1):
+                try:
+                    resp = self._dispatch(prov, prompt, system, max_tok, temp)
+                    if resp.success:
+                        LLMBudgetTracker.record_usage(prov.value, resp.input_tokens, resp.output_tokens)
+                        if use_cache and cache_key and len(_RESPONSE_CACHE) < _MAX_CACHE_ENTRIES:
+                            _RESPONSE_CACHE[cache_key] = resp
+                        return resp
+                    last_error = resp.error
+                except Exception as e:
+                    last_error = str(e)
+                    if self.verbose:
+                        print(f"[LLMGateway] {prov.value} 尝试 {attempt+1}/{max_retries+1} 异常: {e}", flush=True)
+
+                if attempt < max_retries:
+                    import time
+                    time.sleep(0.3 * (2 ** attempt))
 
         return LLMResponse(
             text="", provider=str(self.provider), model=self.model,
-            success=False, error=f"所有 Provider 均失败: {last_error}"
+            success=False, error=f"所有 Provider 均失败 (已执行指数退避重试): {last_error}"
         )
 
     # ─── 快捷静态方法 ──────────────────────────────────────────────────────────
@@ -204,7 +262,7 @@ class LLMGateway:
             return self._call_openai_compat(
                 prompt, system, max_tokens, temperature,
                 base_url="https://api.openai.com/v1",
-                api_key=os.environ.get("OPENAI_API_KEY", self.api_key),
+                api_key=self.api_key or os.environ.get("OPENAI_API_KEY", ""),
                 model=DEFAULT_MODELS[provider],
                 provider_name="openai"
             )
@@ -216,7 +274,7 @@ class LLMGateway:
             return self._call_openai_compat(
                 prompt, system, max_tokens, temperature,
                 base_url="https://api.deepseek.com/v1",
-                api_key=os.environ.get("DEEPSEEK_API_KEY", ""),
+                api_key=self.api_key or os.environ.get("DEEPSEEK_API_KEY", ""),
                 model=DEFAULT_MODELS[provider],
                 provider_name="deepseek"
             )
@@ -227,7 +285,7 @@ class LLMGateway:
     # ─── Gemini ────────────────────────────────────────────────────────────────
     def _call_gemini(self, prompt: str, system: str, max_tokens: int,
                      temperature: float) -> LLMResponse:
-        api_key = os.environ.get("GEMINI_API_KEY", self.api_key)
+        api_key = self.api_key or os.environ.get("GEMINI_API_KEY", "")
         if not api_key:
             return LLMResponse("", "gemini", self.model, success=False,
                                error="GEMINI_API_KEY 未设置")
@@ -248,7 +306,12 @@ class LLMGateway:
                 config=types.GenerateContentConfig(**cfg)
             )
             text = resp.text or ""
-            return LLMResponse(text, "gemini", model, success=True)
+            in_tok = 0
+            out_tok = 0
+            if hasattr(resp, "usage_metadata") and resp.usage_metadata:
+                in_tok = getattr(resp.usage_metadata, "prompt_token_count", 0) or 0
+                out_tok = getattr(resp.usage_metadata, "candidates_token_count", 0) or 0
+            return LLMResponse(text, "gemini", model, input_tokens=in_tok, output_tokens=out_tok, success=True)
         except ImportError:
             pass  # SDK 未安装，降级到 REST
         except Exception as e:
@@ -259,8 +322,7 @@ class LLMGateway:
 
     def _call_gemini_rest(self, prompt: str, system: str, max_tokens: int,
                           temperature: float, api_key: str, model: str) -> LLMResponse:
-        url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
-               f"{model}:generateContent?key={api_key}")
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
         parts = [{"text": prompt}]
         if system:
             parts.insert(0, {"text": f"[SYSTEM] {system}\n\n"})
@@ -268,7 +330,8 @@ class LLMGateway:
             "contents": [{"role": "user", "parts": parts}],
             "generationConfig": {"maxOutputTokens": max_tokens, "temperature": temperature}
         }
-        return self._http_post_json(url, body, "gemini", model)
+        headers = {"x-goog-api-key": api_key}
+        return self._http_post_json(url, body, "gemini", model, headers=headers)
 
     # ─── OpenAI 兼容协议 (OpenAI / DeepSeek) ──────────────────────────────────
     def _call_openai_compat(self, prompt: str, system: str, max_tokens: int,
@@ -314,7 +377,7 @@ class LLMGateway:
     # ─── Claude ────────────────────────────────────────────────────────────────
     def _call_claude(self, prompt: str, system: str, max_tokens: int,
                      temperature: float) -> LLMResponse:
-        api_key = os.environ.get("ANTHROPIC_API_KEY", self.api_key)
+        api_key = self.api_key or os.environ.get("ANTHROPIC_API_KEY", "")
         if not api_key:
             return LLMResponse("", "claude", self.model, success=False,
                                error="ANTHROPIC_API_KEY 未设置")
@@ -389,7 +452,17 @@ class LLMGateway:
                     text = response_extractor(result)
                 else:
                     text = self._extract_gemini_text(result)
-                return LLMResponse(text, provider_name, model, success=True)
+
+                in_tok = 0
+                out_tok = 0
+                if "usageMetadata" in result:
+                    in_tok = result["usageMetadata"].get("promptTokenCount", 0) or 0
+                    out_tok = result["usageMetadata"].get("candidatesTokenCount", 0) or 0
+                elif "usage" in result:
+                    in_tok = result["usage"].get("prompt_tokens", result["usage"].get("input_tokens", 0)) or 0
+                    out_tok = result["usage"].get("completion_tokens", result["usage"].get("output_tokens", 0)) or 0
+
+                return LLMResponse(text, provider_name, model, input_tokens=in_tok, output_tokens=out_tok, success=True)
         except urllib.error.HTTPError as e:
             body_err = e.read().decode("utf-8", errors="replace")
             return LLMResponse("", provider_name, model, success=False,

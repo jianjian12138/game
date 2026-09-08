@@ -38,9 +38,12 @@ class GameProbeHarness:
             "--probe"
         ]
         
-        env = os.environ.copy()
-        env["AUTORUN_TEST"] = "1"
-        env["HEADLESS_PROBE"] = "1"
+        # SEC-007: 过滤敏感 API Key 与凭据，严防子进程环境泄漏
+        sensitive_patterns = ("API_KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL")
+        clean_env = {k: v for k, v in os.environ.items() if not any(p in k.upper() for p in sensitive_patterns)}
+        clean_env["AUTORUN_TEST"] = "1"
+        clean_env["HEADLESS_PROBE"] = "1"
+        env = clean_env
 
         try:
             start_t = time.time()

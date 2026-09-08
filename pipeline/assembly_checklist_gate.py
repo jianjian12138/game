@@ -66,4 +66,4 @@ class AssemblyChecklistGate:
         return all_passed
 
 if __name__ == "__main__":
-    AssemblyChecklistGate(Path(r"D:\jianjian12138\game")).run_full_assembly_gate()
+    AssemblyChecklistGate((Path(__file__).resolve().parent)).run_full_assembly_gate()

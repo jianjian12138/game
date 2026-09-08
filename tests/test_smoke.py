@@ -66,7 +66,7 @@ class Test03_ReleaseGateAndReviewPanel(unittest.TestCase):
     def test_expert_review_panel(self):
         from expert_review import ExpertAcceptancePanel
         panel = ExpertAcceptancePanel()
-        res = panel.conduct_full_review()
+        res = panel.conduct_full_review(write_report=False)
         self.assertTrue(res["all_approved"], f"ExpertAcceptancePanel 存在未通过领域: {res['reviews']}")
         self.assertGreaterEqual(res["overall_score"], 90.0)
 

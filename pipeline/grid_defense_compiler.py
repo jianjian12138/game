@@ -227,7 +227,7 @@ class GridDefenseCompiler:
       // 拾取阳光
       for (let i = sunDrops.length - 1; i >= 0; i--) {{
         const s = sunDrops[i];
-        if (Math.hypot(mx - s.x, my - s.y) < 30) {{
+        const smdx = mx - s.x, smdy = my - s.y; if (smdx*smdx + smdy*smdy < 900) {{
           sun += s.val;
           document.getElementById('sun-count').innerText = sun;
           sunDrops.splice(i, 1);
@@ -284,7 +284,7 @@ class GridDefenseCompiler:
         const z = zombies[i];
         const cellX = GRID_LEFT + c * CELL_W + CELL_W/2;
         const cellY = GRID_TOP + r * CELL_H + CELL_H/2;
-        if (Math.hypot(z.x - cellX, z.y - cellY) < 180) {{
+        const zdx = z.x - cellX, zdy = z.y - cellY; if (zdx*zdx + zdy*zdy < 32400) {{
           zombies.splice(i, 1);
         }}
       }}

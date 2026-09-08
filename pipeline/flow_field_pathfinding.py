@@ -231,7 +231,7 @@ class FlowFieldSystem {
                     }
                 }
 
-                const len = Math.hypot(bestDx, bestDy);
+                const len = Math.sqrt(bestDx * bestDx + bestDy * bestDy);
                 if (len > 0.0001) {
                     this.vectorFieldX[cIdx] = bestDx / len;
                     this.vectorFieldY[cIdx] = bestDy / len;

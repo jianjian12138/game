@@ -74,7 +74,7 @@ class CcgsStoryEngine:
 
 if __name__ == "__main__":
     engine = CcgsStoryEngine()
-    paths = engine.generate_story_files(Path(r"D:\jianjian12138\game\production\epics"))
+    paths = engine.generate_story_files((Path(__file__).resolve().parent / 'production/epics'))
     print("=== CcgsStoryEngine: CCGS 工业级 Story 拆解已生成 ===")
     for p in paths:
         print(f"  [STORY CREATED] {p.name}")

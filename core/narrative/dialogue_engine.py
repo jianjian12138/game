@@ -45,8 +45,7 @@ YAML 格式::
         end: true
 """
 
-from __future__ import annotations
-import yaml
+import core.yaml_compat as yaml
 import re
 from dataclasses import dataclass, field
 from pathlib import Path

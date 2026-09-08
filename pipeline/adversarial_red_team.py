@@ -248,6 +248,11 @@ class RedTeamInquisitor:
         return cls.indict_game_code(content, title=p.name)
 
     @classmethod
+    def indict_content(cls, content: str, title: str = "目标游戏") -> Dict[str, Any]:
+        """别名：对内容源码进行审讯 (对齐 indict_game_code)"""
+        return cls.indict_game_code(content, title=title)
+
+    @classmethod
     def audit_game(cls, target_path: str) -> Dict[str, Any]:
         """顶层门面方法：对目标游戏执行第一性原则审查与对抗式审讯"""
         raw = cls.indict_file(target_path)

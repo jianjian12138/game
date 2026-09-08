@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' data: blob:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
   <title>🎮 Game Dev Agent Studios - 工业商业级多智能体游戏开发工作室</title>
   <link rel="stylesheet" href="/css/style.css">
 </head>
@@ -20,10 +21,10 @@
   </header>
 
   <div class="layout-grid">
-    <!-- 左侧：49 位专家智能体花名册 -->
+    <!-- 左侧：75 位专家智能体花名册 -->
     <div class="panel">
       <div class="panel-title">
-        <span>👥 工作室专家矩阵 (49 Agents)</span>
+        <span>👥 工作室专家矩阵 (75 Agents)</span>
         <span id="active-agent-count" style="font-size:0.75rem; color:var(--accent-cyan);">就绪</span>
       </div>
       <div class="agent-list" id="agent-list">
@@ -64,11 +65,11 @@
           </select>
         </div>
         <textarea id="game-rules-input" placeholder="输入详细规则与玩法设定，或点击「🌐 智能体全网检索规则」由主策划自动生成..." style="height: 52px; background: #161b22; border: 1px solid #30363d; border-radius: 4px; padding: 6px 10px; color: #ccc; font-size: 0.82rem; resize: none; font-family: inherit;">3D FPS 射击规则：Three.js 3D WebGL PBR 渲染。鼠标控制第一人称准星视角，WASD移动，空格跳跃。左键开火射击，R键换弹。敌人具备 3D 寻路与巡逻追击 AI。Hitbox 区分头部(4x爆头暴击)与躯干伤害。消灭全图敌方特战队即获胜。</textarea>
-        <button class="btn" id="btn-create">🚀 启动 49 专家协同研发 (构建 Web 3D 视口 + 导出 Godot 4 工业工程)</button>
+        <button class="btn" id="btn-create">🚀 启动 75 专家协同研发 (构建 Web 3D 视口 + 导出 Godot 4 工业工程)</button>
       </div>
 
       <div class="log-box" id="log-box">
-        <div class="log-entry highlight">💡 请选择大型商业品类或输入自定义游戏名，点击「🚀 启动研发」，49 位专家将全流程协同构建 Web 3D 视口并导出 Godot 4 工程包！</div>
+        <div class="log-entry highlight">💡 请选择大型商业品类或输入自定义游戏名，点击「🚀 启动研发」，75 位专家将全流程协同构建 Web 3D 视口并导出 Godot 4 工程包！</div>
       </div>
     </div>
 
@@ -81,7 +82,7 @@
           <button class="btn" style="padding: 2px 8px; font-size: 0.75rem;" onclick="reloadGame()">🔄 刷新试玩</button>
         </div>
       </div>
-      <iframe class="game-iframe" id="game-frame" src="/output/index.html"></iframe>
+      <iframe class="game-iframe" id="game-frame" src="/output/index.html" sandbox="allow-scripts allow-same-origin allow-pointer-lock allow-forms"></iframe>
     </div>
   </div>
 

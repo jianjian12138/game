@@ -78,5 +78,5 @@ class MultiAgentTeamMatrix:
 
 if __name__ == "__main__":
     matrix = MultiAgentTeamMatrix()
-    out = matrix.generate_matrix_document(Path(r"D:\jianjian12138\game\docs\architecture\multi_agent_team_matrix.md"))
+    out = matrix.generate_matrix_document((Path(__file__).resolve().parent / 'docs/architecture/multi_agent_team_matrix.md'))
     print(f"=== MultiAgentTeamMatrix: 团队角色与权限大典已生成 -> {out.name} ===")

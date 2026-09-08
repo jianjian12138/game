@@ -75,6 +75,6 @@ if __name__ == "__main__":
             "3": "多矿物流 + 电网协同 + 弹药补给",
             "4": "暗色磨砂玻璃 + 60 FPS 纯 Rust 硬件加速"
         },
-        Path(r"D:\jianjian12138\game\design\interview_spec.md")
+        (Path(__file__).resolve().parent / 'design/interview_spec.md')
     )
     print(f"=== GuidedGameInterviewer: 需求规格大典已生成 -> {out.name} ===")

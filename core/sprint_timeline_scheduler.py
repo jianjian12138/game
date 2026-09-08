@@ -76,5 +76,5 @@ class SprintTimelineScheduler:
 
 if __name__ == "__main__":
     scheduler = SprintTimelineScheduler()
-    out = scheduler.generate_schedule_document(Path(r"D:\jianjian12138\game\production\sprint_schedule.md"))
+    out = scheduler.generate_schedule_document((Path(__file__).resolve().parent / 'production/sprint_schedule.md'))
     print(f"=== SprintTimelineScheduler: 排期大典已生成 -> {out.name} ===")

@@ -38,8 +38,7 @@ YAML 格式::
         hitbox: {x: 1.0, y: 0.3, w: 0.5, h: 0.5}
 """
 
-from __future__ import annotations
-import yaml
+import core.yaml_compat as yaml
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path

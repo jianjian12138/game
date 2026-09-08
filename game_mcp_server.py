@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 game_mcp_server.py: 游戏开发多智能体工作室 MCP 服务端 (Game Studio Model Context Protocol)
-基于标准 JSON-RPC 2.0 协议，暴露工作室 49 位专家、73 个技能与游戏自动化生成流水线，
+基于标准 JSON-RPC 2.0 协议，暴露工作室 75 位专家、108 个技能与游戏自动化生成流水线，
 允许任何外部 IDE、Cursor、Antigravity 或外部 Agent 远程驱动游戏工作室。
 
 纯 Python 3.9+ 标准库实现，零外部依赖。
@@ -9,6 +9,7 @@ game_mcp_server.py: 游戏开发多智能体工作室 MCP 服务端 (Game Studio
 import sys
 import json
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 # Windows UTF-8 保护
 if sys.platform == "win32":
@@ -670,6 +671,32 @@ def handle_rpc_request(req: dict) -> dict:
             return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32601, "message": f"未知的 Tool: {tool_name}"}}
 
     return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32600, "message": "不支持的方法"}}
+
+def dispatch_tool(tool_name: str, arguments: Dict[str, Any] = None) -> Any:
+    """程序化直接派发 MCP 工具并返回结构化数据"""
+    if arguments is None:
+        arguments = {}
+    req = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {
+            "name": tool_name,
+            "arguments": arguments
+        }
+    }
+    resp = handle_rpc_request(req)
+    if "error" in resp:
+        raise RuntimeError(resp["error"].get("message", "Tool execution error"))
+    result = resp.get("result", {})
+    content = result.get("content", [])
+    if content and isinstance(content, list) and len(content) > 0:
+        text = content[0].get("text", "")
+        try:
+            return json.loads(text)
+        except Exception:
+            return text
+    return result
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] in ("--export-tools", "--export-openai"):

@@ -97,5 +97,5 @@ class AssetCompilerQA:
         return is_passed
 
 if __name__ == "__main__":
-    qa = AssetCompilerQA(Path(r"D:\jianjian12138\game\output\mindustry_rust_full\assets"))
+    qa = AssetCompilerQA((Path(__file__).resolve().parent / 'output/mindustry_rust_full/assets'))
     qa.run_full_qa_gate()

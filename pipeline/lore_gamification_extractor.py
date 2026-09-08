@@ -74,5 +74,5 @@ class LoreGamificationExtractor:
 if __name__ == "__main__":
     extractor = LoreGamificationExtractor()
     spec = extractor.extract_gamification_spec("行星资源争夺战，核心基地降落，敌对无人机群持续进攻", "Mindustry_Planet_War")
-    out = extractor.save_spec_to_markdown(spec, Path(r"D:\jianjian12138\game\design\gamification_lore.md"))
+    out = extractor.save_spec_to_markdown(spec, (Path(__file__).resolve().parent / 'design/gamification_lore.md'))
     print(f"=== LoreGamificationExtractor: 设定集已生成 -> {out.name} ===")

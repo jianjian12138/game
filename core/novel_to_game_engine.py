@@ -79,7 +79,7 @@ class NovelToGameEngine:
         return generated_files
 
 if __name__ == "__main__":
-    engine = NovelToGameEngine(Path(r"D:\jianjian12138\game\design\novel_to_game_workspace"))
+    engine = NovelToGameEngine((Path(__file__).resolve().parent / 'design/novel_to_game_workspace'))
     res = engine.generate_7_step_artifacts("Mindustry Planet War", ExecutionMode.QUICK)
     print("=== NovelToGameEngine: 7 步标准制品已全部生成 ===")
     for k, v in res.items():

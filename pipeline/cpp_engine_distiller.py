@@ -80,7 +80,7 @@ class CppEngineDistiller:
         }
     ]
 
-    def __init__(self, output_dir: Path = Path(r"D:\jianjian12138\game\knowledge\book_skills")):
+    def __init__(self, output_dir: Path = (Path(__file__).resolve().parent / 'knowledge/book_skills')):
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
 

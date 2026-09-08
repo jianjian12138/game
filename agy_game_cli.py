@@ -2,7 +2,7 @@
 Antigravity Game Platform — Master Unified Developer CLI
 =========================================================
 Unified command-line interface for:
-  - Querying the 34 Parts in Ford-T Catalog
+  - Querying the 35 Parts in Ford-T Catalog
   - Assembling custom multi-genre game architectures
   - Running Card & Roguelike Monte Carlo balancing simulations
   - Executing Commercial Release Gate audits
@@ -99,8 +99,8 @@ def cmd_templates(args):
     print("2. Survivor Danmaku (Bullet Hell):")
     print("   Engine: templates/survivor_danmaku/danmaku_engine.py")
     print("   HTML5:  templates/survivor_danmaku/index.html")
-    print("3. Combat Arena Showcase:")
-    print("   HTML5:  build/playable_showcase.html")
+    print("3. Industrial Combat Showcase:")
+    print("   HTML5:  output/industrial_engine_showcase/index.html")
     print("================================================================")
 
 
@@ -111,7 +111,7 @@ def cmd_wechat_pack(args):
         "survivor_danmaku": "templates/survivor_danmaku/index.html",
         "card": "templates/card_roguelike/index.html",
         "card_roguelike": "templates/card_roguelike/index.html",
-        "showcase": "build/playable_showcase.html",
+        "showcase": "output/industrial_engine_showcase/index.html",
     }
     src = tpl_map.get(args.template.lower())
     if not src:
@@ -141,7 +141,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command")
 
     # list-parts
-    subparsers.add_parser("list-parts", help="List all 34 parts in Ford-T catalog")
+    subparsers.add_parser("list-parts", help="List all 35 parts in Ford-T catalog")
 
     # assemble
     p_assemble = subparsers.add_parser("assemble", help="Assemble game from parts")

@@ -51,5 +51,5 @@ class ExecutableSpecGenerator:
         return self.output_file
 
 if __name__ == "__main__":
-    out = ExecutableSpecGenerator(Path(r"D:\jianjian12138\game\design\skills_executable_spec.md")).generate_full_spec()
+    out = ExecutableSpecGenerator((Path(__file__).resolve().parent / 'design/skills_executable_spec.md')).generate_full_spec()
     print(f"=== ExecutableSpecGenerator: 规格表生成成功 -> {out.name} ===")

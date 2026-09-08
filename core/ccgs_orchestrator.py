@@ -128,7 +128,7 @@ class CcgsOrchestrator:
         return self.generate_adr_template(adr_id, title, tier)
 
 if __name__ == "__main__":
-    orchestrator = CcgsOrchestrator(Path(r"D:\jianjian12138\game"))
+    orchestrator = CcgsOrchestrator((Path(__file__).resolve().parent))
     gdd = orchestrator.generate_gdd_template("logistic_conveyor_system")
     adr = orchestrator.generate_adr_template("ADR-0001", "zero_gc_rust_conveyor_stream", "Foundation (基础层/地基)")
     print(f"=== CCGS Orchestrator: 规范化文档已就绪 ===")

@@ -62,4 +62,4 @@ class GameAnatomyAudit:
         return all_ok
 
 if __name__ == "__main__":
-    GameAnatomyAudit(Path(r"D:\jianjian12138\game")).run_full_audit()
+    GameAnatomyAudit((Path(__file__).resolve().parent)).run_full_audit()

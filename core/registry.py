@@ -7,7 +7,7 @@ registry.py: 游戏开发多智能体工作室大典 (Game Studio Registry)
 """
 from typing import Dict, List, Any
 
-# ==================== 1. 49 个专家子代理 (6 大部门) ====================
+# ==================== 1. 75 位专家子代理 (6 大部门) ====================
 STUDIO_DEPARTMENTS = {
     "production": {
         "name": "制作与管理部",

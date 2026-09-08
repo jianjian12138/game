@@ -11,6 +11,48 @@ document.addEventListener("DOMContentLoaded", () => {
   const hookStageText = document.getElementById("hook-stage-text");
   const activeAgentCount = document.getElementById("active-agent-count");
 
+// DOM XSS 防御 (V5-05)
+  function clearContainer(element) {
+    if (element.replaceChildren) {
+      element.replaceChildren();
+    } else {
+      while (element.firstChild) {
+        element.removeChild(element.firstChild);
+      }
+    }
+  }
+
+  function appendLog(message, options = {}) {
+    const entry = document.createElement("div");
+    entry.className = options.className ? `log-entry ${options.className}` : "log-entry";
+    if (options.color) entry.style.color = options.color;
+
+    if (options.prefix) {
+      const strong = document.createElement("strong");
+      strong.textContent = options.prefix + " ";
+      entry.appendChild(strong);
+    }
+
+    if (options.badges && options.badges.length > 0) {
+      options.badges.forEach(b => {
+        const badge = document.createElement("span");
+        badge.className = b.className || "skill-badge";
+        badge.textContent = b.text;
+        if (b.style) Object.assign(badge.style, b.style);
+        entry.appendChild(badge);
+        entry.appendChild(document.createTextNode(" "));
+      });
+    }
+
+    const textNode = document.createElement("span");
+    textNode.textContent = message;
+    entry.appendChild(textNode);
+
+    logBox.appendChild(entry);
+    logBox.scrollTop = logBox.scrollHeight;
+    return entry;
+  }
+
   const PRESET_RULES = {
     "cs": "3D FPS 射击规则：Three.js 3D WebGL PBR 渲染。鼠标控制第一人称准星视角，WASD移动，空格跳跃。左键开火射击，R键换弹。敌人具备 3D 寻路与巡逻追击 AI。Hitbox 区分头部(4x爆头暴击)与躯干伤害。消灭全图敌方特战队即获胜。",
     "我的世界": "3D 体素沙盒规则：Three.js 3D 空间三维网格。WASD移动，鼠标环顾，空格跳跃与重力物理。左键破坏方块，右键放置方块，数字键1-4切换草方块/泥土/石块/砖块材质。支持无限创造与建造。",
@@ -44,7 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // 智能体全网检索规则功能
+  // 智能体全网检索规则功能 (使用 textContent 零拼接)
   btnResearch.addEventListener("click", () => {
     const query = gameInput.value.trim();
     if (!query) {
@@ -52,8 +94,9 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
     btnResearch.disabled = true;
-    logBox.innerHTML = `<div class="log-entry highlight">🔍 [主策划 & 叙事专家] 启动全网规则检索与竞品机制调研：《${query}》...</div>`;
-    
+    clearContainer(logBox);
+    appendLog(`🔍 [主策划 & 叙事专家] 启动全网规则检索与竞品机制调研：《${query}》...`, { className: "highlight" });
+
     clearAllActiveAgents();
     const designerCard = document.getElementById("agent-card-lead_game_designer");
     if (designerCard) {
@@ -69,26 +112,19 @@ document.addEventListener("DOMContentLoaded", () => {
       .then(res => res.json())
       .then(res => {
         btnResearch.disabled = false;
-        rulesInput.value = res.extracted_rules;
+        rulesInput.value = res.extracted_rules || "";
         if (res.title) gameInput.value = res.title;
-        
-        logBox.innerHTML += `
-          <div class="log-entry">
-            <strong>✅ [规则提炼完成]</strong> 数据来源: <span style="color:#00eeff;">${res.source}</span>
-          </div>
-          <div class="log-entry" style="color:#ffd700;">
-            📜 提炼规则: ${res.extracted_rules}
-          </div>
-        `;
-        logBox.scrollTop = logBox.scrollHeight;
+
+        appendLog(`数据来源: ${res.source || "网络检索"}`, { prefix: "✅ [规则提炼完成]" });
+        appendLog(`📜 提炼规则: ${res.extracted_rules || ""}`, { color: "#ffd700" });
       })
       .catch(err => {
         btnResearch.disabled = false;
-        logBox.innerHTML += `<div class="log-entry" style="color:#ff3366;">❌ 调研失败: ${err}</div>`;
+        appendLog(`❌ 调研失败: ${String(err)}`, { color: "#ff3366" });
       });
   });
 
-  // 1. 加载 49 个智能体名录
+  // 1. 加载 49+ 个智能体名录 (使用 DOM createElement 与 textContent 构造)
   fetch("/api/agents")
     .then(res => res.json())
     .then(data => {
@@ -98,20 +134,44 @@ document.addEventListener("DOMContentLoaded", () => {
         depts[a.department_name].push(a);
       });
 
-      agentList.innerHTML = Object.entries(depts).map(([dName, agents]) => `
-        <div class="dept-group">
-          <div class="dept-name">${dName} (${agents.length})</div>
-          ${agents.map(a => `
-            <div class="agent-item" id="agent-card-${a.id}">
-              <div class="agent-name">
-                <span>${a.name}</span>
-                <span class="agent-tag">工作中</span>
-              </div>
-              <div class="agent-role">${a.role}</div>
-            </div>
-          `).join("")}
-        </div>
-      `).join("");
+      clearContainer(agentList);
+      Object.entries(depts).forEach(([dName, agents]) => {
+        const deptGroup = document.createElement("div");
+        deptGroup.className = "dept-group";
+
+        const deptTitle = document.createElement("div");
+        deptTitle.className = "dept-name";
+        deptTitle.textContent = `${dName} (${agents.length})`;
+        deptGroup.appendChild(deptTitle);
+
+        agents.forEach(a => {
+          const item = document.createElement("div");
+          item.className = "agent-item";
+          item.id = `agent-card-${a.id}`;
+
+          const header = document.createElement("div");
+          header.className = "agent-name";
+
+          const nameSpan = document.createElement("span");
+          nameSpan.textContent = a.name;
+          header.appendChild(nameSpan);
+
+          const tagSpan = document.createElement("span");
+          tagSpan.className = "agent-tag";
+          tagSpan.textContent = "工作中";
+          header.appendChild(tagSpan);
+
+          const roleDiv = document.createElement("div");
+          roleDiv.className = "agent-role";
+          roleDiv.textContent = a.role;
+
+          item.appendChild(header);
+          item.appendChild(roleDiv);
+          deptGroup.appendChild(item);
+        });
+
+        agentList.appendChild(deptGroup);
+      });
     });
 
   // 2. 逐步流式推演协同流水线
@@ -121,9 +181,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const custom_rules = rulesInput.value.trim();
 
     btnCreate.disabled = true;
-    logBox.innerHTML = `<div class="log-entry highlight">⚡ [Pipeline] 启动 12 个生命周期 Hooks 流水线：《${title}》(${genre}) 49位专家入驻开发...</div>`;
+    clearContainer(logBox);
+    appendLog(`⚡ [Pipeline] 启动 12 个生命周期 Hooks 流水线：《${title}》(${genre}) 专家入驻开发...`, { className: "highlight" });
     progressBar.style.width = "0%";
-    hookStageText.innerText = "立项筹备中...";
+    hookStageText.textContent = "立项筹备中...";
 
     fetch("/api/create", {
       method: "POST",
@@ -136,17 +197,16 @@ document.addEventListener("DOMContentLoaded", () => {
         playWorkflowSteps(steps, 0, () => {
           btnCreate.disabled = false;
           progressBar.style.width = "100%";
-          hookStageText.innerText = "✅ 商业工程交付就绪 (Godot 4已导出)";
-          activeAgentCount.innerText = "全部就绪";
+          hookStageText.textContent = "✅ 商业工程交付就绪 (Godot 4已导出)";
+          activeAgentCount.textContent = "全部就绪";
           clearAllActiveAgents();
 
-          // 重新加载 iframe 游戏
           reloadGame();
         });
       })
       .catch(err => {
         btnCreate.disabled = false;
-        logBox.innerHTML += `<div class="log-entry" style="color:#ff3366;">❌ 生成失败: ${err}</div>`;
+        appendLog(`❌ 生成失败: ${String(err)}`, { color: "#ff3366" });
       });
   });
 
@@ -159,12 +219,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const step = steps[index];
     const progress = Math.round(((index + 1) / steps.length) * 100);
     progressBar.style.width = progress + "%";
-    hookStageText.innerText = `[${index + 1}/12] ${step.phase} (${step.hook})`;
+    hookStageText.textContent = `[${index + 1}/12] ${step.phase} (${step.hook})`;
 
     // 高亮正在工作的智能体
     clearAllActiveAgents();
     if (step.active_agents && step.active_agents.length > 0) {
-      activeAgentCount.innerText = `🔥 ${step.active_agents.length} 位专家协同中`;
+      activeAgentCount.textContent = `🔥 ${step.active_agents.length} 位专家协同中`;
       step.active_agents.forEach(aId => {
         const card = document.getElementById("agent-card-" + aId);
         if (card) {
@@ -174,21 +234,25 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    // 日志追加 (附带金色 Skills 徽章与青色 Knowledge 徽章)
-    const item = document.createElement("div");
-    item.className = "log-entry";
-    
-    let badges = "";
+    // 日志追加：纯 DOM 构造安全追加
+    const badges = [];
     if (step.used_skills && step.used_skills.length > 0) {
-      badges += step.used_skills.map(s => `<span class="skill-badge">${s}</span>`).join(" ");
+      step.used_skills.forEach(s => {
+        badges.push({ text: s, className: "skill-badge" });
+      });
     }
     if (step.knowledge_module) {
-      badges += ` <span style="background:#093b4f; color:#00eeff; border:1px solid #00eeff; padding:1px 5px; border-radius:3px; font-size:0.75rem; font-weight:bold;">📚 ${step.knowledge_module}</span>`;
+      badges.push({
+        text: `📚 ${step.knowledge_module}`,
+        className: "skill-badge",
+        style: { background: "#093b4f", color: "#00eeff", border: "1px solid #00eeff" }
+      });
     }
 
-    item.innerHTML = `<div><strong>[Hook: ${step.hook}]</strong> ${badges} ${step.log}</div>`;
-    logBox.appendChild(item);
-    logBox.scrollTop = logBox.scrollHeight;
+    appendLog(step.log || "", {
+      prefix: `[Hook: ${step.hook}]`,
+      badges: badges
+    });
 
     setTimeout(() => {
       playWorkflowSteps(steps, index + 1, onComplete);

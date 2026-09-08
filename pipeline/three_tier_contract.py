@@ -48,5 +48,5 @@ class ThreeTierContractValidator:
         return passed
 
 if __name__ == "__main__":
-    validator = ThreeTierContractValidator(Path(r"D:\jianjian12138\game\output\mindustry_rust_full\src"))
+    validator = ThreeTierContractValidator((Path(__file__).resolve().parent / 'output/mindustry_rust_full/src'))
     validator.run_contract_check()

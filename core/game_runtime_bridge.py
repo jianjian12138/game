@@ -137,7 +137,7 @@ class GameRuntimeBridge:
     // Canvas Click / Spacebar Attack
     window.addEventListener('keydown', e => {{
       if (e.code === 'Space' || e.code === 'KeyJ') {{
-        const dist = Math.hypot(target.x - player.x, target.y - player.y);
+        const dist = Math.sqrt((target.x - player.x)**2 + (target.y - player.y)**2);
         if (dist < 120) {{
           const isCrit = Math.random() < 0.3;
           triggerImpact(isCrit ? 45 : 22, isCrit);

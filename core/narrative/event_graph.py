@@ -39,8 +39,7 @@ YAML 格式::
             area: chapter2
 """
 
-from __future__ import annotations
-import yaml
+import core.yaml_compat as yaml
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
