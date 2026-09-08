@@ -1,5 +1,5 @@
-# 🎮 Antigravity AI-Native 全品类游戏研发工业引擎平台
-# (Antigravity Full-Genre AI-Native Game Development Platform)
+# 🎮  AI-Native 全品类游戏研发工业引擎平台
+# ( Full-Genre AI-Native Game Development Platform)
 
 > 🚀 **工业级全品类跨端游戏智能开发中枢**：
 > 深度融合 **Ford-T 零件流水线装配架构**（35 项预制工业级零件覆盖 8 大主流品类）、**双向 DSL 游戏逻辑热更运行时**、**行为树 AI 决策中枢**、**高精度帧同步/状态同步网络引擎**、**Combat Juice 战斗打击感打击停顿/震屏总线**、**卡牌与肉鸽蒙特卡洛平衡模拟器**、**GDC 赛斯·哈德森叙事教育学与 SLO 闭环审计引擎**，并支持 **一键微信小游戏 4MB 门禁打包与分包审计**。
