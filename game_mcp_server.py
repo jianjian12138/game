@@ -672,12 +672,30 @@ def handle_rpc_request(req: dict) -> dict:
     return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32600, "message": "不支持的方法"}}
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ("--export-tools", "--export-openai"):
+        openai_tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": t["name"],
+                    "description": t["description"],
+                    "parameters": t["inputSchema"]
+                }
+            }
+            for t in MCP_TOOLS
+        ]
+        print(json.dumps(openai_tools, ensure_ascii=False, indent=2))
+        return
+
     if len(sys.argv) > 1 and sys.argv[1] in ("--help", "-h", "--info"):
         stats = get_stats()
-        print("🎮 Game Dev Agent Studios - Model Context Protocol (MCP) Server v9.5 Industrial Engineering Edition")
+        print("🎮 Universal Game Dev Agent - Model Context Protocol (MCP) Server v9.5")
         print(f"📊 已就绪: {stats['departments_count']} 大部门, {stats['agents_count']} 位专家, {stats['skills_count']} 个 Skills, {stats['hooks_count']} 个 Hooks")
-        print(f"🤖 LLM Tools: {len(MCP_TOOLS)} 个 MCP Tools (已支持 Gemini / OpenAI / Claude / Ollama / DeepSeek)")
-        print("用法: python game_mcp_server.py [--help|--info] (默认作为标准输入输出 JSON-RPC stdio 服务运行)")
+        print(f"🤖 LLM Tools: {len(MCP_TOOLS)} 个 MCP Tools (已支持 Claude Code, Codex, Hermes-Agent, Cursor 等)")
+        print("用法:")
+        print("  python game_mcp_server.py                    # 作为 MCP stdio 服务运行 (供 Claude Code/Cursor/Windsurf 接入)")
+        print("  python game_mcp_server.py --export-tools     # 导出标准 OpenAI / Codex Function Calling Tools 格式 JSON")
+        print("  python game_mcp_server.py --help             # 打印此帮助信息")
         return
 
     for line in sys.stdin:

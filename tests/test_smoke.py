@@ -16,7 +16,7 @@ class Test01_CLIExtendedSmoke(unittest.TestCase):
     """测试所有顶层 CLI 与服务入口是否能正常输出 help 且退出码为 0"""
 
     def test_all_cli_help(self):
-        scripts = ["game_agent.py", "agy_game_cli.py", "game_mcp_server.py", "server.py"]
+        scripts = ["game_agent.py", "game_cli.py", "agy_game_cli.py", "game_mcp_server.py", "server.py"]
         for s in scripts:
             p = ROOT / s
             self.assertTrue(p.exists(), f"脚本 {s} 不存在")

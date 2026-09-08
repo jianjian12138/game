@@ -1,46 +1,92 @@
-# 🎮  AI-Native 全品类游戏研发工业引擎平台
-# ( Full-Genre AI-Native Game Development Platform)
+# 🎮 Universal Game Dev Agent Platform — 通用型全品类游戏智能研发平台
+# (Universal Full-Genre AI-Native Game Development Platform)
 
-> 🚀 **工业级全品类跨端游戏智能开发中枢**：
+> 🚀 **通用型全品类游戏智能研发中枢**：
+> 本系统为**开放通用型 AI 智能体架构**，不绑定任何特定客户端。**既可完全独立作为命令行工具或 Web 工作室运行，也可被 Claude Code (cc)、OpenAI Codex、Hermes-Agent、Cursor/Windsurf 等各类通用 Agent 通过标准协议 (MCP / Function Calling / REST / Python SDK) 无缝调用**。
+>
 > 深度融合 **Ford-T 零件流水线装配架构**（35 项预制工业级零件覆盖 8 大主流品类）、**双向 DSL 游戏逻辑热更运行时**、**行为树 AI 决策中枢**、**高精度帧同步/状态同步网络引擎**、**Combat Juice 战斗打击感打击停顿/震屏总线**、**卡牌与肉鸽蒙特卡洛平衡模拟器**、**GDC 赛斯·哈德森叙事教育学与 SLO 闭环审计引擎**，并支持 **一键微信小游戏 4MB 门禁打包与分包审计**。
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Web_Canvas_|_WeChat_Minigame_|_Python-blue.svg)]()
+[![Universal Agent](https://img.shields.io/badge/Agent-Claude_Code_|_Codex_|_Hermes_|_MCP_|_REST-blueviolet.svg)]()
+[![Platform](https://img.shields.io/badge/Platform-Standalone_CLI_|_Web_Canvas_|_WeChat_Minigame-blue.svg)]()
 [![Ford-T Parts](https://img.shields.io/badge/Ford--T_Parts-35_Industrial_Parts-purple.svg)](./core/ford_t_game_parts_hub.py)
-[![Release Gate](https://img.shields.io/badge/Release_Gate-APPROVED-brightgreen.svg)](./RELEASE_AUDIT_REPORT.md)
+[![Release Gate](https://img.shields.io/badge/Release_Gate-APPROVED-brightgreen.svg)](./pipeline/release_gate.py)
 [![Zero-Deps](https://img.shields.io/badge/Zero--Deps-Python_Standard_Library-orange.svg)]()
 
 ---
 
-## 🌟 核心子系统与工业矩阵
+## 🌐 通用 Agent 跨平台调用与多协议支持 (Multi-Agent Interoperability)
 
-| 子系统模块 | 核心源码位置 | 功能描述与工业标准 |
-| :--- | :--- | :--- |
-| **Ford-T 零件装配中枢** | [`core/ford_t_game_parts_hub.py`](file:///d:/jianjian12138/game/core/ford_t_game_parts_hub.py) | **35 项标准化工业零件**，覆盖 Core, Card, Rhythm, Roguelike, Builder/Sim, Racing, 3D 与 Narrative 等全品类 |
-| **叙事教育学与 SLO 引擎** | [`core/narrative_pedagogy_engine.py`](file:///d:/jianjian12138/game/core/narrative_pedagogy_engine.py) | GDC 赛斯·哈德森体系：Wordsmith/Sensemaker/Advocate 三角色流水线、死路孤岛审计、机制咬合度、字数预算与遗留交接自愈 |
-| **战斗打击感流水线** | [`core/combat_juice_bus.py`](file:///d:/jianjian12138/game/core/combat_juice_bus.py) | 3~12 帧 Hit-Stop 顿帧、非线性 $Trauma^2$ 震屏、体积守恒 Squash-Stretch ($s_x \cdot s_y = 1$)、阻尼浮字与火花粒子 |
-| **帧数据与判定盒系统** | [`core/frame_data/`](file:///d:/jianjian12138/game/core/frame_data/) | 6 帧先进制输入缓冲、Startup/Active/Recovery 帧表、Hitbox/Hurtbox/Pushbox 三层 AABB 几何盒 |
-| **高并发弹幕与空间索引** | [`core/bullet_system/`](file:///d:/jianjian12138/game/core/bullet_system/) | 500+ 对象池复用、单帧 $O(1)$ 空间哈希网格碰撞加速、Spiral/Radial/Aimed 弹幕模式生成器 |
-| **双向 DSL 逻辑解释器** | [`core/dsl_engine/`](file:///d:/jianjian12138/game/core/dsl_engine/) | 零编译极速热重载，内置 Card / Bullet / Skill / Chart 四大领域方言与语义校验 |
-| **行为树决策 AI** | [`core/behavior_tree/`](file:///d:/jianjian12138/game/core/behavior_tree/) | Composite/Decorator/Action 节点、黑板机制与格斗/Boss多阶段/恐怖追逐/动态橡皮筋 4 套预设 AI |
-| **多通道节拍音频引擎** | [`core/audio/`](file:///d:/jianjian12138/game/core/audio/) | 单调时钟精确音画同步、BGM/SFX/Voice/UI 独立通道衰减与 2D 距离平方立体声 |
-| **动态光照与战争迷雾** | [`core/lighting/`](file:///d:/jianjian12138/game/core/lighting/) | 2D 阴影投射、手电筒恐怖闪烁衰减、昼夜循环环境光与已探索/当前可见战争迷雾 |
-| **网络多端同步套件** | [`core/networking/`](file:///d:/jianjian12138/game/core/networking/) | 锁步同步 (Lockstep Sync)、状态增量压缩同步 (Delta StateSync)、客户端预测回滚与断线重连 |
-| **卡牌与肉鸽数值平衡** | [`pipeline/card_balance_simulator.py`](file:///d:/jianjian12138/game/pipeline/card_balance_simulator.py) | 蒙特卡洛万局对抗模拟、斩杀回合分布、标签协同联动效应溢出 (>2.5x) 自动告警 |
-| **A/B 测试与数据埋点** | [`pipeline/player_analytics/`](file:///d:/jianjian12138/game/pipeline/player_analytics/) | 确定性 SHA-256 分流、Z-score 假设检验显著性分析、漏斗转化、D1~D30 留存与空间热力图 |
-| **UGC 内容创作套件** | [`core/ugc/`](file:///d:/jianjian12138/game/core/ugc/) | 关卡编辑器 (连通性校验)、音游谱面量化镜像、赛道样条曲线闭环验证与 Base64 紧凑分享口令 |
-| **商业化发布门禁** | [`pipeline/release_gate.py`](file:///d:/jianjian12138/game/pipeline/release_gate.py) | 自动化全套回归测试套件运行、微信小游戏 4MB 首包预算审计与发布认证报告 |
-| **微信小游戏适配打包** | [`pipeline/wechat_packager.py`](file:///d:/jianjian12138/game/pipeline/wechat_packager.py) | Canvas/DOM/Touch/Audio 抹平适配器，一键输出微信开发者工具工程包 |
+本平台设计原则为 **“协议解耦、无宿主锁死”**，提供 5 种平行的调用方式：
+
+### 1. 独立单独使用 (Standalone CLI & Web Studio)
+无需任何 AI Agent 客户端，开发者或 CI/CD 流程可直接调用：
+```bash
+# 全局命令行快速执行
+python game_cli.py list-parts
+python game_agent.py create "赛博幸存者" --genre "2D弹幕射击"
+
+# 启动本地可视化工作室控制台
+python server.py --browser --port 8090
+```
+
+### 2. Claude Code (`cc`) / Cursor / Windsurf 接入 (标准 MCP 协议)
+支持 Anthropic 主导的 **Model Context Protocol (MCP)** 标准，作为外部工具挂载：
+- **Claude Code 挂载命令**：
+  ```bash
+  claude mcp add game-dev-agent python d:/jianjian12138/game/game_mcp_server.py
+  ```
+- **Cursor / Windsurf 配置 (`mcp.json`)**：
+  ```json
+  {
+    "mcpServers": {
+      "game-dev-agent": {
+        "command": "python",
+        "args": ["d:/jianjian12138/game/game_mcp_server.py"]
+      }
+    }
+  }
+  ```
+Claude Code 或 Cursor 可自动发现并调用包括装配、平衡模拟、红军对抗、微信打包等 **30 个原子研发工具**。
+
+### 3. OpenAI Codex / ChatGPT / Function Calling 智能体接入
+支持一键导出 OpenAI 格式的标准 Function Calling Tools 契约：
+```bash
+python game_mcp_server.py --export-tools > game_tools.json
+```
+导出的 JSON 数组可直接贴入 OpenAI `client.chat.completions.create(tools=...)` 或 Codex Agent 中。
+
+### 4. Hermes-Agent / AutoGen / CrewAI 原生 Python SDK 导入
+基于标准 `pyproject.toml` 规范，任何 Python 智能体框架均可直接引入：
+```python
+from core.behavior_tree import BTBuilder, Blackboard
+from pipeline.commercial_game_factory import CommercialGameFactory
+from pipeline.adversarial_red_team import RedTeamInquisitor
+
+# 在 Hermes-Agent 工具函数内执行
+game = CommercialGameFactory.build_cyber_survivor()
+veto_result = RedTeamInquisitor.indict_file("output/cyber_survivor/index.html")
+```
+
+### 5. 通用 HTTP REST API 接入 (LangChain, Flowise, 跨语言服务)
+启动后台服务后，任何语言 (Node.js, Go, Rust, Java) 均可通过 HTTP 访问：
+```bash
+python server.py --port 8090
+# 接口：
+# GET  http://localhost:8090/api/stats
+# GET  http://localhost:8090/api/templates
+# POST http://localhost:8090/api/generate  (Body: {"title": "太空突围", "genre": "2D射击"})
+```
 
 ---
 
 ## 🕹️ 统一开发者命令行 (Master CLI)
 
-平台提供全局统一命令行入口 [`agy_game_cli.py`](file:///d:/jianjian12138/game/agy_game_cli.py)：
+平台提供全局通用命令行入口 [`game_cli.py`](file:///d:/jianjian12138/game/game_cli.py)（或 [`game_agent.py`](file:///d:/jianjian12138/game/game_agent.py)）：
 
 ### 1. 查询 35 项预制零件库
 ```bash
-python agy_game_cli.py list-parts
+python game_cli.py list-parts
 ```
 
 ### 2. 模块化装配游戏架构
