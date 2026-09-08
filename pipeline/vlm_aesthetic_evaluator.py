@@ -68,18 +68,20 @@ class HeuristicVisualAuditor:
             elif p.suffix.lower() in [".html", ".htm", ".js"]:
                 html_file = p
         
-        # 若未指定目标，兜底查找默认演示产物
+        # 若未指定目标，兜底查找仓库内置模板产物
         substituted_from = None
-        if not img_file and not html_file:
+        if not img_file and not html_file and not p:
             candidates = [
+                ROOT / "pipeline" / "templates" / "cyber_survivor_master.html",
+                ROOT / "templates" / "survivor_danmaku" / "index.html",
+                ROOT / "templates" / "card_roguelike" / "index.html",
                 ROOT / "output" / "cyber_survivor" / "index.html",
-                ROOT / "output" / "mindustry_rust_gameplay.png",
-                ROOT / "output" / "coroner" / "micro_prototype.html"
+                ROOT / "output" / "mindustry_rust_gameplay.png"
             ]
             for c in candidates:
                 if c.exists():
-                    if c.suffix == ".png": img_file = c
-                    elif c.suffix == ".html": html_file = c
+                    if c.suffix in (".png", ".jpg", ".webp"): img_file = c
+                    elif c.suffix in (".html", ".js"): html_file = c
                     substituted_from = str(c)
                     break
 
@@ -341,8 +343,21 @@ class VLMAestheticEvaluator:
     def evaluate(image_path: Optional[str] = None, use_llm: bool = False,
                  provider: str = "gemini", model: Optional[str] = None) -> Dict[str, Any]:
         """执行视觉审美与 UI 人机工效全流程评估"""
-        img_target = image_path or str(ROOT / "output" / "mindustry_rust_gameplay.png")
-        if use_llm and Path(img_target).exists():
+        img_target = image_path
+        if not img_target:
+            candidates = [
+                ROOT / "pipeline" / "templates" / "cyber_survivor_master.html",
+                ROOT / "templates" / "survivor_danmaku" / "index.html",
+                ROOT / "templates" / "card_roguelike" / "index.html",
+                ROOT / "output" / "cyber_survivor" / "index.html",
+                ROOT / "output" / "mindustry_rust_gameplay.png"
+            ]
+            for c in candidates:
+                if c.exists():
+                    img_target = str(c)
+                    break
+
+        if use_llm and img_target and Path(img_target).exists():
             return VLMAestheticCritic.critique_with_llm(img_target, provider=provider, model=model)
         else:
             return HeuristicVisualAuditor.audit_image_or_mock(img_target)

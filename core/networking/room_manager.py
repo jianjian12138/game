@@ -4,7 +4,7 @@ Room lifecycle, player seats, ready state checks, and auto-matchmaking queues.
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 
 
 @dataclass

@@ -125,6 +125,11 @@ def run_server(port: int = 8090, open_browser: bool = False):
         print("\n服务已停止。")
 
 if __name__ == "__main__":
-    p = 8090
-    if len(sys.argv) > 1: p = int(sys.argv[1])
-    run_server(p)
+    import argparse
+    parser = argparse.ArgumentParser(description="Game Dev Agent Studios 中控台服务")
+    parser.add_argument("port", nargs="?", type=int, default=8090, help="监听端口 (默认 8090)")
+    parser.add_argument("--port", "-p", dest="opt_port", type=int, default=None, help="监听端口")
+    parser.add_argument("--browser", "-b", action="store_true", help="自动打开浏览器")
+    args = parser.parse_args()
+    port = args.opt_port or args.port
+    run_server(port=port, open_browser=args.browser)

@@ -3,7 +3,7 @@ Player Cohort & Retention Analysis
 Calculates D1, D3, D7, D14, D30 retention matrices for player lifecycle evaluation.
 """
 
-from typing import Dict, List, Any, Set
+from typing import Dict, List, Any, Set, Optional
 from .event_tracker import TrackedEvent
 
 

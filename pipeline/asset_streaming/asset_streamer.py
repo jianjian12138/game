@@ -4,7 +4,7 @@ Streams game assets based on camera proximity, frustum relevance, and bandwidth 
 """
 
 from dataclasses import dataclass
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 import heapq
 
 

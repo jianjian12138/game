@@ -47,7 +47,7 @@ YAML 格式::
 from __future__ import annotations
 import yaml
 from pathlib import Path
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Sequence
 
 from .bt_nodes import (
     NodeStatus, BTNode, Sequence, Selector, Parallel,

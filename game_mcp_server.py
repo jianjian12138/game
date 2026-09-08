@@ -672,11 +672,12 @@ def handle_rpc_request(req: dict) -> dict:
     return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32600, "message": "不支持的方法"}}
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] == "--info":
+    if len(sys.argv) > 1 and sys.argv[1] in ("--help", "-h", "--info"):
         stats = get_stats()
         print("🎮 Game Dev Agent Studios - Model Context Protocol (MCP) Server v9.5 Industrial Engineering Edition")
         print(f"📊 已就绪: {stats['departments_count']} 大部门, {stats['agents_count']} 位专家, {stats['skills_count']} 个 Skills, {stats['hooks_count']} 个 Hooks")
         print(f"🤖 LLM Tools: {len(MCP_TOOLS)} 个 MCP Tools (已支持 Gemini / OpenAI / Claude / Ollama / DeepSeek)")
+        print("用法: python game_mcp_server.py [--help|--info] (默认作为标准输入输出 JSON-RPC stdio 服务运行)")
         return
 
     for line in sys.stdin:

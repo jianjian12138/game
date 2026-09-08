@@ -205,36 +205,81 @@ self.addEventListener('fetch', (e) => {{
 
     @staticmethod
     def audit_compliance(dist_root: Path) -> Dict[str, Any]:
-        """对分发产物执行全面合规与安全门禁审查"""
+        """对分发产物执行全面合规与安全门禁审查 (Fail-Closed 真实扫描)"""
+        p = Path(dist_root)
+        if not p.exists():
+            return {
+                "compliance_verdict": "REJECTED",
+                "total_checks": 3,
+                "passed_checks": 0,
+                "error": f"分发目录不存在: {dist_root}",
+                "findings": [
+                    {"rule": "分发产物有效性", "status": "FAIL", "detail": f"目录不存在: {dist_root}"}
+                ]
+            }
+
+        # 收集分发包中所有文本文件内容
+        scanned_files = []
+        all_text = ""
+        for ext in ("*.html", "*.js", "*.json"):
+            for f in p.rglob(ext):
+                scanned_files.append(f)
+                try:
+                    all_text += f.read_text(encoding="utf-8", errors="ignore") + "\n"
+                except Exception:
+                    pass
+
+        if not scanned_files:
+            return {
+                "compliance_verdict": "REJECTED",
+                "total_checks": 3,
+                "passed_checks": 0,
+                "error": f"分发目录下未找到可审计文件: {dist_root}",
+                "findings": [
+                    {"rule": "分发产物有效性", "status": "FAIL", "detail": "分发目录下无有效前端文件"}
+                ]
+            }
+
         audit_findings = []
         checks_passed = 0
 
         # 1. 检查健康游戏忠告与未成年人防沉迷标识
+        has_advice = any(keyword in all_text for keyword in ("抵制不良游戏", "拒绝盗版游戏", "注意自我保护", "健康游戏忠告"))
         audit_findings.append({
             "rule": "国家出版署健康游戏忠告协议",
-            "status": "PASS",
-            "detail": "已植入健康游戏忠告 48 字核心准则"
+            "status": "PASS" if has_advice else "FAIL",
+            "detail": "已植入健康游戏忠告核心准则" if has_advice else "未检测到国家出版署健康游戏忠告标识"
         })
-        checks_passed += 1
+        if has_advice:
+            checks_passed += 1
 
         # 2. 检查网络通信是否强制使用安全域名 (WSS/HTTPS)
+        import re
+        http_matches = re.findall(r'http://[a-zA-Z0-9\.\-_]+', all_text)
+        # 过滤掉 http://www.w3.org 等 XML 命名空间
+        insecure_http = [u for u in http_matches if "w3.org" not in u and "localhost" not in u and "127.0.0.1" not in u]
+        is_secure = len(insecure_http) == 0
         audit_findings.append({
             "rule": "微信安全合法域名白名单 (request/upload/socket)",
-            "status": "PASS",
-            "detail": "无明文 http 危险注入，已符合 TLS 1.2+ 规范"
+            "status": "PASS" if is_secure else "FAIL",
+            "detail": "无明文 http 危险注入，符合 TLS 规范" if is_secure else f"发现 {len(insecure_http)} 处不安全 http 链接"
         })
-        checks_passed += 1
+        if is_secure:
+            checks_passed += 1
 
         # 3. 检查零硬编码敏感密钥
+        has_secret_leak = bool(re.search(r'(appsecret|pay_key|private_key)\s*[:=]\s*["\'][a-zA-Z0-9]{16,}["\']', all_text, re.I))
         audit_findings.append({
             "rule": "密钥防泄露门禁",
-            "status": "PASS",
-            "detail": "无任何静态 AppSecret / PayKey 硬编码入前端包"
+            "status": "PASS" if not has_secret_leak else "FAIL",
+            "detail": "无任何静态 AppSecret / PayKey 硬编码入前端包" if not has_secret_leak else "检测到疑似敏感密钥明文硬编码泄漏"
         })
-        checks_passed += 1
+        if not has_secret_leak:
+            checks_passed += 1
 
+        all_ok = checks_passed == len(audit_findings)
         return {
-            "compliance_verdict": "CERTIFIED_SAFE",
+            "compliance_verdict": "CERTIFIED_SAFE" if all_ok else "REJECTED",
             "total_checks": len(audit_findings),
             "passed_checks": checks_passed,
             "healthy_advice": CommercialDistributionHub.HEALTHY_GAMING_ADVICE.strip(),

@@ -17,7 +17,7 @@ import time
 import json
 import math
 from pathlib import Path
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Tuple, Optional, Sequence
 
 WORKSPACE_ROOT = str(Path(__file__).resolve().parent.parent)
 if WORKSPACE_ROOT not in sys.path:
