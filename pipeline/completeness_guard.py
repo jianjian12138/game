@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-pipeline/completeness_guard.py: 游戏完备性与真实资产实体第一性门禁 (Completeness & First-Principles Guard)
+pipeline/completeness_guard.py: 游戏完备性与实体第一性门禁 (Completeness Guard)
 
-彻底拔除“形式主义关键词搜索”！
-基于第一性事实与 AST / 语义解析审查：
+基于多层复合特征分析与关键行为审查：
 1. 角色/养成体系: 具备职业选择或局外永久天赋成长元游戏 (Meta-Progression)。
 2. 真实视觉实体: 严禁单一裸圆圈 (ctx.arc) 充当角色！必须具备图像精灵 (drawImage) 或高阶复合矢量装甲 (包含躯干、肢体、朝向、阴影)。
 3. 技能树构筑: 具备 Roguelike 三选一卡牌构筑或技能升级分支。

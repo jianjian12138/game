@@ -1,31 +1,22 @@
-# 🚀 腾讯 CNB 云原生流水线声明式规范 (.cnb.yml)
-# Everything-as-Code 游戏全自动研发流水线
+# 🚀 腾讯云 CNB / 云原生 CI 流水线定义
+# Universal Game Dev Agent Studio — 工业级自动化门禁流水线
 
 version: 1.0
-name: mindustry-planet-war-eac-pipeline
+name: universal-game-agent-ci-pipeline
 
 stages:
-  - name: 1. Requirement & Architecture Gate
+  - name: 1. Core Module & CLI Extended Smoke Test
     tasks:
-      - script: python pipeline/test_mechanics_integration.py
-      - script: python pipeline/game_anatomy_audit.py
-      - script: python core/constitution_guard.py
+      - script: python -m unittest discover -s tests
 
-  - name: 2. Assets & Rendering Guard
+  - name: 2. Industrial Standards Regression Matrix (13 Gates)
     tasks:
-      - script: python pipeline/style_lock_verifier.py
-      - script: python pipeline/test_spritesheet_interaction.py
-      - script: python pipeline/test_aseprite_engine.py
+      - script: python pipeline/test_all_standards.py
 
-  - name: 3. Combat, Motion & AI Brain
+  - name: 3. Commercial Release Gate & WeChat 4MB Audit
     tasks:
-      - script: python pipeline/test_action_timeline.py
-      - script: python pipeline/test_expressive_motion.py
-      - script: python pipeline/test_agent_combat_brain.py
-      - script: python pipeline/test_nitrogen_action.py
+      - script: python pipeline/release_gate.py
 
-  - name: 4. Final Stranger 3-Q & Assembly Checklist
+  - name: 4. Master Expert Acceptance Panel (Zero-Placeholder Review)
     tasks:
-      - script: python pipeline/anti_overengineering_guard.py
-      - script: python pipeline/test_gdevelop_engine.py
-      - script: python pipeline/assembly_checklist_gate.py
+      - script: python expert_review.py
