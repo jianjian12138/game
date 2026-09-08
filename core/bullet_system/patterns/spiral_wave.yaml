@@ -1,0 +1,73 @@
+# 螺旋波弹幕
+# ===========
+# 旋转发射形成螺旋形弹幕，经典东方Project风格
+
+id: spiral_wave
+loop: true              # 持续循环
+global_speed: 1.0
+
+pattern:
+  - type: fire
+    count: 3
+    spread: 120         # 120度均匀（三叉）
+    offset_angle: 0
+    speed: 3.0
+    bullet:
+      sprite: bullet_blue
+      damage: 1
+      lifetime: 5.0
+
+  - type: wait
+    frames: 4
+
+  - type: fire
+    count: 3
+    spread: 120
+    offset_angle: 15    # 每次旋转15度，形成螺旋
+    speed: 3.0
+    bullet:
+      sprite: bullet_blue
+      damage: 1
+      lifetime: 5.0
+
+  - type: wait
+    frames: 4
+
+  - type: fire
+    count: 3
+    spread: 120
+    offset_angle: 30
+    speed: 3.0
+    bullet:
+      sprite: bullet_blue
+      damage: 1
+      lifetime: 5.0
+
+  - type: wait
+    frames: 4
+
+  - type: fire
+    count: 3
+    spread: 120
+    offset_angle: 45
+    speed: 3.0
+    bullet:
+      sprite: bullet_blue
+      damage: 1
+      lifetime: 5.0
+
+  - type: wait
+    frames: 4
+
+  - type: fire
+    count: 3
+    spread: 120
+    offset_angle: 60
+    speed: 3.0
+    bullet:
+      sprite: bullet_blue
+      damage: 1
+      lifetime: 5.0
+
+  - type: wait
+    frames: 20         # 较长间隔后重新循环

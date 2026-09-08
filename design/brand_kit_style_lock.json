@@ -1,0 +1,27 @@
+{
+  "theme_name": "Mindustry Sci-Fi Industrial Glass",
+  "palette": {
+    "background_dark": "#121317",
+    "panel_glass": "rgba(24, 28, 36, 0.88)",
+    "panel_border": "#3d4452",
+    "accent_primary": "#ffd37f",
+    "accent_energy": "#5b92e5",
+    "accent_danger": "#e55b5b",
+    "accent_success": "#5be584"
+  },
+  "rarity_colors": {
+    "Common (基础物资)": "#b0bac5",
+    "Uncommon (精炼材料)": "#5b92e5",
+    "Rare (高级合金)": "#a85be5",
+    "Legendary (核心科技)": "#ffd37f"
+  },
+  "ui_geometry": {
+    "corner_radius_px": 6.0,
+    "border_stroke_px": 1.5,
+    "button_padding_px": [
+      8.0,
+      16.0
+    ],
+    "font_family": "TrueType Modern Vector"
+  }
+}

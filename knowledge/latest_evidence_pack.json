@@ -1,0 +1,10 @@
+{
+  "evidence_version": "1.0.0",
+  "has_critical_blockers": true,
+  "dimension_1_runtime_stderr": "None (Clean Run)",
+  "dimension_2_probe_state": {},
+  "dimension_3_visual_diff_violations": [
+    "Turret missing drop shadow layer"
+  ],
+  "dimension_4_solver_failures": []
+}

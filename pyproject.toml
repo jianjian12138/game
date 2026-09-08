@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "game-dev-agent-studio"
+version = "2.5.0"
+description = "Industrial-grade Autonomous Game-Dev AI Agent Platform"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+    { name = "jianjian12138", email = "jianjian@example.com" }
+]
+dependencies = [
+    "PyYAML>=6.0.0",
+]
+
+[project.optional-dependencies]
+llm = [
+    "google-genai>=1.0.0",
+    "openai>=1.0.0",
+    "anthropic>=0.20.0",
+    "httpx>=0.24.0",
+    "python-dotenv>=1.0.0"
+]
+vision = [
+    "pillow>=10.0.0"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["core*", "pipeline*", "agents*", "hooks*", "knowledge*"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests", "pipeline"]
+python_files = ["test_*.py", "*_test.py"]

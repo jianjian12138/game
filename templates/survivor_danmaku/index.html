@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Touhou Survivor — AI-Native High-Density Danmaku</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background: #06090e; color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    #stage-container {
+      position: relative; width: 850px; height: 550px;
+      background: #090e17; border: 2px solid #1f293d; border-radius: 14px;
+      box-shadow: 0 25px 70px rgba(0,0,0,0.9), 0 0 40px rgba(255, 0, 128, 0.15);
+      overflow: hidden;
+    }
+    canvas { display: block; width: 100%; height: 100%; }
+    #hud {
+      position: absolute; top: 0; left: 0; width: 100%; height: 50px;
+      padding: 10px 20px; display: flex; align-items: center; justify-content: space-between;
+      pointer-events: none; z-index: 10;
+      background: linear-gradient(180deg, rgba(6,9,14,0.9) 0%, transparent 100%);
+      font-weight: bold; font-size: 14px; letter-spacing: 1px;
+    }
+    .hud-stat { display: flex; align-items: center; gap: 8px; }
+    .exp-bar { width: 300px; height: 10px; background: #1c2638; border-radius: 5px; overflow: hidden; }
+    .exp-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #00eeff, #38ef7d); transition: width 0.1s; }
+  </style>
+</head>
+<body>
+
+  <div id="stage-container">
+    <div id="hud">
+      <div class="hud-stat">
+        <span style="color: #00eeff;">LV.<span id="lvl-txt">1</span></span>
+        <div class="exp-bar"><div id="exp-bar" class="exp-fill"></div></div>
+      </div>
+      <div style="color: #ff007f;">BULLETS: <span id="bullet-count">0</span></div>
+      <div style="color: #ffea00;">SCORE: <span id="score-txt">0</span></div>
+    </div>
+    <canvas id="cvs" width="850" height="550"></canvas>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('cvs');
+    const ctx = canvas.getContext('2d');
+
+    const player = { x: 425, y: 275, spd: 4, radius: 10, hp: 100 };
+    const bullets = [];
+    const enemies = [];
+    const gems = [];
+    const keys = {};
+
+    let score = 0, exp = 0, expMax = 100, level = 1;
+    let spiralAngle = 0;
+    let shootTimer = 0;
+
+    window.addEventListener('keydown', e => keys[e.code] = true);
+    window.addEventListener('keyup', e => keys[e.code] = false);
+
+    // Spawn initial wave
+    for (let i = 0; i < 25; i++) spawnEnemy();
+
+    function spawnEnemy() {
+      const edge = Math.floor(Math.random() * 4);
+      let x = 0, y = 0;
+      if (edge === 0) { x = Math.random() * 850; y = -20; }
+      else if (edge === 1) { x = 870; y = Math.random() * 550; }
+      else if (edge === 2) { x = Math.random() * 850; y = 570; }
+      else { x = -20; y = Math.random() * 550; }
+      enemies.push({ x, y, hp: 20, maxHp: 20, spd: 1.2 + Math.random() * 0.8 });
+    }
+
+    function shootSpiral() {
+      spiralAngle += 0.25;
+      const count = 3;
+      for (let i = 0; i < count; i++) {
+        const ang = spiralAngle + (i * Math.PI * 2 / count);
+        bullets.push({
+          x: player.x, y: player.y,
+          vx: Math.cos(ang) * 5.5,
+          vy: Math.sin(ang) * 5.5,
+          life: 180, radius: 4, color: '#00eeff'
+        });
+      }
+    }
+
+    function update() {
+      // Movement
+      if (keys['KeyA'] || keys['ArrowLeft']) player.x -= player.spd;
+      if (keys['KeyD'] || keys['ArrowRight']) player.x += player.spd;
+      if (keys['KeyW'] || keys['ArrowUp']) player.y -= player.spd;
+      if (keys['KeyS'] || keys['ArrowDown']) player.y += player.spd;
+      player.x = Math.max(15, Math.min(835, player.x));
+      player.y = Math.max(15, Math.min(535, player.y));
+
+      // Auto shoot
+      shootTimer++;
+      if (shootTimer % 6 === 0) shootSpiral();
+
+      // Bullets update
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        b.x += b.vx;
+        b.y += b.vy;
+        b.life--;
+        if (b.life <= 0 || b.x < 0 || b.x > 850 || b.y < 0 || b.y > 550) {
+          bullets.splice(i, 1);
+        }
+      }
+
+      // Enemies update
+      if (enemies.length < 35 && Math.random() < 0.1) spawnEnemy();
+
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+        const ang = Math.atan2(player.y - e.y, player.x - e.x);
+        e.x += Math.cos(ang) * e.spd;
+        e.y += Math.sin(ang) * e.spd;
+
+        // Collision with bullets (Simulating Spatial Hash O(1))
+        for (let j = bullets.length - 1; j >= 0; j--) {
+          const b = bullets[j];
+          const dist = Math.hypot(e.x - b.x, e.y - b.y);
+          if (dist < 14) {
+            e.hp -= 10;
+            bullets.splice(j, 1);
+            if (e.hp <= 0) {
+              // Spawn gem
+              gems.push({ x: e.x, y: e.y, val: 20 });
+              enemies.splice(i, 1);
+              score += 100;
+              break;
+            }
+          }
+        }
+      }
+
+      // Gems update (Magnet pull)
+      for (let i = gems.length - 1; i >= 0; i--) {
+        const g = gems[i];
+        const d = Math.hypot(player.x - g.x, player.y - g.y);
+        if (d < 120) {
+          g.x += (player.x - g.x) * 0.15;
+          g.y += (player.y - g.y) * 0.15;
+        }
+        if (d < 18) {
+          exp += g.val;
+          gems.splice(i, 1);
+          if (exp >= expMax) {
+            level++;
+            exp = 0;
+            expMax = Math.round(expMax * 1.4);
+            document.getElementById('lvl-txt').textContent = level;
+          }
+        }
+      }
+
+      // Update HUD
+      document.getElementById('bullet-count').textContent = bullets.length;
+      document.getElementById('score-txt').textContent = score;
+      document.getElementById('exp-bar').style.width = (exp / expMax * 100) + '%';
+    }
+
+    function render() {
+      ctx.fillStyle = '#090e17';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Gems
+      ctx.fillStyle = '#38ef7d';
+      for (let g of gems) {
+        ctx.beginPath(); ctx.arc(g.x, g.y, 4, 0, Math.PI*2); ctx.fill();
+      }
+
+      // Enemies
+      ctx.fillStyle = '#f85149';
+      for (let e of enemies) {
+        ctx.beginPath(); ctx.arc(e.x, e.y, 10, 0, Math.PI*2); ctx.fill();
+      }
+
+      // Bullets (500+ glow)
+      ctx.fillStyle = '#00eeff';
+      ctx.shadowColor = '#00eeff';
+      ctx.shadowBlur = 8;
+      for (let b of bullets) {
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI*2); ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+
+      // Player
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(player.x, player.y, player.radius, 0, Math.PI*2); ctx.fill();
+      ctx.strokeStyle = '#00eeff';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(player.x, player.y, player.radius + 4, 0, Math.PI*2); ctx.stroke();
+    }
+
+    function loop() {
+      update();
+      render();
+      requestAnimationFrame(loop);
+    }
+    loop();
+  </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+{
+  "scene_name": "ground_zero_canyon",
+  "grid_width": 60,
+  "grid_height": 40,
+  "core_spawn": {
+    "x": 30,
+    "y": 20,
+    "type": "CoreShard",
+    "init_copper": 100,
+    "init_lead": 100
+  },
+  "player_spawn": {
+    "x": 30.0,
+    "y": 20.0,
+    "type": "AlphaShip"
+  },
+  "canyon_cliffs": [
+    {
+      "start": [
+        0,
+        0
+      ],
+      "end": [
+        59,
+        3
+      ],
+      "type": "StoneWall"
+    },
+    {
+      "start": [
+        0,
+        36
+      ],
+      "end": [
+        59,
+        39
+      ],
+      "type": "StoneWall"
+    },
+    {
+      "start": [
+        0,
+        0
+      ],
+      "end": [
+        3,
+        39
+      ],
+      "type": "StoneWall"
+    },
+    {
+      "start": [
+        56,
+        0
+      ],
+      "end": [
+        59,
+        39
+      ],
+      "type": "StoneWall"
+    }
+  ],
+  "ore_veins": [
+    {
+      "type": "OreCopper",
+      "center": [
+        22,
+        20
+      ],
+      "radius": 3,
+      "clusters": 12
+    },
+    {
+      "type": "OreLead",
+      "center": [
+        38,
+        20
+      ],
+      "radius": 3,
+      "clusters": 10
+    },
+    {
+      "type": "OreCoal",
+      "center": [
+        30,
+        32
+      ],
+      "radius": 2,
+      "clusters": 8
+    }
+  ],
+  "command_line_dispatch": {
+    "engine": "macroquad_rust",
+    "entrypoint": "world.generate_default_map()",
+    "headless_support": true
+  }
+}

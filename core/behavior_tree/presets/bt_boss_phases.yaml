@@ -1,0 +1,110 @@
+# Boss 分阶段行为树预设
+# ======================
+# 适用于：所有类型的Boss战
+# 特点：三阶段血量切换、阶段入场演出、阶段内循环技能
+
+name: boss_phases
+description: |
+  三阶段Boss AI：
+  - Phase 3（HP<30%）：狂暴模式，全屏弹幕
+  - Phase 2（HP<60%）：强化模式，冲锋+范围攻击
+  - Phase 1（HP>=60%）：正常模式，循环普通攻击
+
+root:
+  type: Selector
+  name: Boss主决策
+
+  children:
+    # ── Phase 3 狂暴（<30%）────────────────────────────
+    - type: Sequence
+      name: Phase3_狂暴
+      children:
+        - type: Condition
+          name: HP低于30%
+          key: hp_percent
+          op: below
+          threshold: 30
+        - type: Sequence
+          name: Phase3入场（仅触发一次）
+          children:
+            - type: Inverter
+              child:
+                type: Condition
+                name: 已触发Phase3
+                key: phase3_triggered
+                op: has
+            - type: Action
+              name: Phase3入场演出
+              action: trigger_phase3_cutscene
+        - type: Selector
+          name: Phase3技能循环
+          children:
+            - type: Cooldown
+              cooldown: 6.0
+              child:
+                type: Action
+                name: 全屏弹幕
+                action: fullscreen_barrage
+            - type: Cooldown
+              cooldown: 3.0
+              child:
+                type: Action
+                name: 狂暴冲锋
+                action: berserk_charge
+            - type: Action
+              name: 快速普攻
+              action: rapid_basic_attack
+
+    # ── Phase 2 强化（<60%）────────────────────────────
+    - type: Sequence
+      name: Phase2_强化
+      children:
+        - type: Condition
+          name: HP低于60%
+          key: hp_percent
+          op: below
+          threshold: 60
+        - type: Sequence
+          name: Phase2入场（仅触发一次）
+          children:
+            - type: Inverter
+              child:
+                type: Condition
+                name: 已触发Phase2
+                key: phase2_triggered
+                op: has
+            - type: Action
+              name: Phase2入场演出
+              action: trigger_phase2_cutscene
+        - type: Selector
+          name: Phase2技能循环
+          children:
+            - type: Cooldown
+              cooldown: 8.0
+              child:
+                type: Action
+                name: 范围爆炸
+                action: aoe_explosion
+            - type: Cooldown
+              cooldown: 4.0
+              child:
+                type: Action
+                name: 冲锋攻击
+                action: charge_attack
+            - type: Action
+              name: 普通攻击
+              action: basic_attack
+
+    # ── Phase 1 正常（>=60%）────────────────────────────
+    - type: Selector
+      name: Phase1_正常技能循环
+      children:
+        - type: Cooldown
+          cooldown: 5.0
+          child:
+            type: Action
+            name: 技能攻击
+            action: skill_attack
+        - type: Action
+          name: 普通攻击
+          action: basic_attack

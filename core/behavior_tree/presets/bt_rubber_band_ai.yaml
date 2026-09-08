@@ -1,0 +1,92 @@
+# 竞速橡皮筋 AI 行为树预设
+# ==========================
+# 适用于：赛车游戏、追逐类游戏
+# 特点：根据与玩家排名差距动态调整AI速度/能力
+
+name: rubber_band_ai
+description: |
+  橡皮筋AI：当AI落后时提速，领先时限速，维持玩家体验的竞争感。
+  核心参数（从黑板读取）：
+    rank_gap: 正值=AI领先，负值=AI落后
+    speed_boost_active: 是否正在加速
+    player_distance: 与玩家的实际距离
+
+root:
+  type: Sequence
+  name: 橡皮筋AI主逻辑
+
+  children:
+    # 1. 每帧更新感知数据
+    - type: Action
+      name: 更新排名差距
+      action: update_rank_gap
+
+    # 2. 根据差距选择速度策略
+    - type: Selector
+      name: 速度策略选择
+
+      children:
+        # 严重落后（差距 < -2名）：强力加速
+        - type: Sequence
+          name: 大幅追赶
+          children:
+            - type: Condition
+              name: 落后超过2名
+              key: rank_gap
+              op: below
+              threshold: -2
+            - type: Action
+              name: 启用强力加速
+              action: enable_strong_boost
+            - type: Action
+              name: 选最短路线
+              action: use_shortcut_path
+
+        # 轻微落后（差距 < 0）：适度加速
+        - type: Sequence
+          name: 轻微追赶
+          children:
+            - type: Condition
+              name: 稍微落后
+              key: rank_gap
+              op: below
+              threshold: 0
+            - type: Action
+              name: 启用轻微加速
+              action: enable_mild_boost
+
+        # 大幅领先（差距 > 3名）：明显限速（避免玩家感到无聊）
+        - type: Sequence
+          name: 领先太多，减速
+          children:
+            - type: Condition
+              name: 领先超过3名
+              key: rank_gap
+              op: above
+              threshold: 3
+            - type: Action
+              name: 触发错误/刹车
+              action: simulate_minor_mistake
+            - type: Action
+              name: 降低速度
+              action: reduce_speed
+
+        # 正常状态：标准驾驶
+        - type: Action
+          name: 正常行驶
+          action: drive_normal
+
+    # 3. 执行驾驶逻辑
+    - type: Selector
+      name: 驾驶决策
+      children:
+        - type: Condition
+          name: 有道具可用
+          key: has_item
+          op: has
+        - type: Action
+          name: 使用道具
+          action: use_item
+        - type: Action
+          name: 跟随赛道
+          action: follow_racing_line

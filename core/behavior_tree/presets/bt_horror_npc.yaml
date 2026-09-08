@@ -1,0 +1,95 @@
+# 恐怖游戏 NPC 行为树预设
+# =========================
+# 适用于：恐怖游戏怪物、追逐型AI
+# 特点：感知→搜索→追逐→攻击 四状态分层决策
+
+name: horror_npc
+description: |
+  恐怖游戏AI：听觉/视觉感知 → 调查 → 追逐 → 攻击。
+  玩家潜行时NPC依赖噪音感知；玩家暴露后进入追逐模式。
+  追逐超时（30s）则回到巡逻状态。
+
+root:
+  type: Selector
+  name: 恐怖NPC主决策
+
+  children:
+    # ── 攻击（玩家在攻击范围内）──────────────────────
+    - type: Sequence
+      name: 攻击玩家
+      children:
+        - type: Condition
+          name: 玩家在攻击范围
+          key: player_in_attack_range
+          op: has
+        - type: Action
+          name: 执行攻击
+          action: attack_player
+
+    # ── 追逐（已锁定玩家位置）────────────────────────
+    - type: Sequence
+      name: 追逐模式
+      children:
+        - type: Condition
+          name: 已锁定玩家
+          key: player_location_known
+          op: has
+        - type: Timeout
+          time_limit: 30.0
+          child:
+            type: Sequence
+            children:
+              - type: Action
+                name: 播放追逐音效
+                action: play_chase_sound
+              - type: Action
+                name: 向玩家位置移动
+                action: move_to_player
+        - type: Action
+          name: 追逐超时，返回巡逻
+          action: reset_to_patrol
+
+    # ── 调查（听到声音）──────────────────────────────
+    - type: Sequence
+      name: 调查声音
+      children:
+        - type: Condition
+          name: 检测到噪音
+          key: noise_detected
+          op: has
+        - type: Action
+          name: 转向噪音源
+          action: face_noise_source
+        - type: Timeout
+          time_limit: 8.0
+          child:
+            type: Action
+            name: 前往调查
+            action: investigate_noise
+        - type: Action
+          name: 清除噪音记忆
+          action: clear_noise_memory
+
+    # ── 感知：视野/声音检测 ───────────────────────────
+    - type: Sequence
+      name: 感知玩家
+      children:
+        - type: Selector
+          name: 感知来源
+          children:
+            - type: Condition
+              name: 视野内发现玩家
+              key: player_in_fov
+              op: has
+            - type: Condition
+              name: 听到玩家声音
+              key: noise_detected
+              op: has
+        - type: Action
+          name: 更新玩家位置
+          action: update_player_location
+
+    # ── 巡逻（默认行为）──────────────────────────────
+    - type: Action
+      name: 巡逻路点
+      action: patrol_waypoints

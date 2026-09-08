@@ -1,0 +1,31 @@
+# 🚀 腾讯 CNB 云原生流水线声明式规范 (.cnb.yml)
+# Everything-as-Code 游戏全自动研发流水线
+
+version: 1.0
+name: mindustry-planet-war-eac-pipeline
+
+stages:
+  - name: 1. Requirement & Architecture Gate
+    tasks:
+      - script: python pipeline/test_mechanics_integration.py
+      - script: python pipeline/game_anatomy_audit.py
+      - script: python core/constitution_guard.py
+
+  - name: 2. Assets & Rendering Guard
+    tasks:
+      - script: python pipeline/style_lock_verifier.py
+      - script: python pipeline/test_spritesheet_interaction.py
+      - script: python pipeline/test_aseprite_engine.py
+
+  - name: 3. Combat, Motion & AI Brain
+    tasks:
+      - script: python pipeline/test_action_timeline.py
+      - script: python pipeline/test_expressive_motion.py
+      - script: python pipeline/test_agent_combat_brain.py
+      - script: python pipeline/test_nitrogen_action.py
+
+  - name: 4. Final Stranger 3-Q & Assembly Checklist
+    tasks:
+      - script: python pipeline/anti_overengineering_guard.py
+      - script: python pipeline/test_gdevelop_engine.py
+      - script: python pipeline/assembly_checklist_gate.py

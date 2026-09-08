@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎮 Game Dev Agent Studios - 工业商业级多智能体游戏开发工作室</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <header>
+    <h1>🎮 Game Dev Agent Studios <span style="font-size:0.85rem; background:linear-gradient(135deg,#ff3366,#8957e5); padding:2px 8px; border-radius:4px; margin-left:8px; font-weight:normal;">3D/2D 商业级旗舰</span></h1>
+    <div class="stats-bar">
+      <div class="stat-chip">部门: <strong>6</strong></div>
+      <div class="stat-chip">专家代理: <strong>49</strong></div>
+      <div class="stat-chip">开发技能: <strong>73</strong></div>
+      <div class="stat-chip">生命周期钩子: <strong>12</strong></div>
+      <div class="stat-chip">渲染目标: <strong>Three.js 3D / 60 FPS</strong></div>
+    </div>
+  </header>
+
+  <div class="layout-grid">
+    <!-- 左侧：49 位专家智能体花名册 -->
+    <div class="panel">
+      <div class="panel-title">
+        <span>👥 工作室专家矩阵 (49 Agents)</span>
+        <span id="active-agent-count" style="font-size:0.75rem; color:var(--accent-cyan);">就绪</span>
+      </div>
+      <div class="agent-list" id="agent-list">
+        <!-- JS 动态渲染 -->
+      </div>
+    </div>
+
+    <!-- 中间：研发控制台与规则设定 -->
+    <div class="panel control-area">
+      <div class="panel-title">
+        <span>⚙️ 商业级大作立项、规则检索与 12 Hooks 流水线</span>
+        <span id="hook-stage-text" style="font-size:0.8rem; color:var(--accent-green);">等待立项</span>
+      </div>
+      <div class="progress-bar-container">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+
+      <!-- 规则与玩法定制表单 -->
+      <div style="display: flex; flex-direction: column; gap: 8px; background: #0d1117; padding: 10px; border-radius: 6px; border: 1px solid #21262d;">
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="game-title-input" value="反恐前线：幽灵突击 3D" placeholder="输入任意大型游戏 (如：CS、我的世界、梦幻西游、消消乐...)" style="flex: 1; background: #161b22; border: 1px solid #30363d; border-radius: 4px; padding: 6px 10px; color: #fff; font-size: 0.9rem;">
+          <button class="btn" id="btn-research" style="background: linear-gradient(135deg, #8957e5, #1f6feb); font-size:0.85rem; padding:6px 12px; white-space:nowrap;">🌐 智能体全网检索规则</button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <select id="game-genre-select" style="flex: 1; background: #161b22; border: 1px solid #30363d; border-radius: 4px; padding: 6px 10px; color: #00eeff; font-size: 0.88rem;">
+            <option value="cs">🔫 3D FPS: 反恐精英 CS (Three.js 3D/PBR/准星/后坐力/3D敌人AI)</option>
+            <option value="我的世界">⛏️ 3D 沙盒: 我的世界 Minecraft (Three.js 3D/体素破坏与放置/跳跃重力)</option>
+            <option value="梦幻西游">⚔️ 回合制 RPG: 梦幻西游 (3v3站位/横扫千军/三昧真火/暴击飘字)</option>
+            <option value="开心消消乐">💎 关卡三消: 开心消消乐 (8x8宝石掉落/炸弹/魔力鸟/步数挑战)</option>
+            <option value="象棋">♟️ 棋牌: 正统中国象棋 (楚河汉界/正统棋规/蹩马腿塞象眼)</option>
+            <option value="斗地主">🎴 棋牌: 经典斗地主 (扑克/AI对战/压牌胜负)</option>
+            <option value="扫雷">💣 益智: 经典扫雷 (网格/地雷/连锁展开)</option>
+            <option value="2048">🔢 益智: 2048 (方块滑动/数字合并)</option>
+            <option value="五子棋">⚪ 棋牌: 五子棋 (连珠胜负)</option>
+            <option value="贪吃蛇">🐍 街机: 霓虹贪吃蛇 (身体生长)</option>
+            <option value="打砖块">🧱 物理: 弹球打砖块 (反弹碰撞)</option>
+            <option value="自定义新游戏">✨ 任意全新创意游戏 (智能体自主提炼规则与组装)</option>
+          </select>
+        </div>
+        <textarea id="game-rules-input" placeholder="输入详细规则与玩法设定，或点击「🌐 智能体全网检索规则」由主策划自动生成..." style="height: 52px; background: #161b22; border: 1px solid #30363d; border-radius: 4px; padding: 6px 10px; color: #ccc; font-size: 0.82rem; resize: none; font-family: inherit;">3D FPS 射击规则：Three.js 3D WebGL PBR 渲染。鼠标控制第一人称准星视角，WASD移动，空格跳跃。左键开火射击，R键换弹。敌人具备 3D 寻路与巡逻追击 AI。Hitbox 区分头部(4x爆头暴击)与躯干伤害。消灭全图敌方特战队即获胜。</textarea>
+        <button class="btn" id="btn-create">🚀 启动 49 专家协同研发 (构建 Web 3D 视口 + 导出 Godot 4 工业工程)</button>
+      </div>
+
+      <div class="log-box" id="log-box">
+        <div class="log-entry highlight">💡 请选择大型商业品类或输入自定义游戏名，点击「🚀 启动研发」，49 位专家将全流程协同构建 Web 3D 视口并导出 Godot 4 工程包！</div>
+      </div>
+    </div>
+
+    <!-- 右侧：即时运行与试玩沙盒 -->
+    <div class="panel preview-area">
+      <div class="panel-title">
+        <span>🕹️ 即时试玩沙盒 (Three.js 3D / Canvas)</span>
+        <div style="display:flex; gap:6px;">
+          <button class="btn" style="padding: 2px 8px; font-size: 0.75rem; background:#388bfd;" onclick="alert('📦 Godot 4 工业级工程已就绪于 output/godot_project/，包含 project.godot、main.tscn 与 main.gd，可直接在 Godot 4 导入编译！')">📦 Godot 4 工程</button>
+          <button class="btn" style="padding: 2px 8px; font-size: 0.75rem;" onclick="reloadGame()">🔄 刷新试玩</button>
+        </div>
+      </div>
+      <iframe class="game-iframe" id="game-frame" src="/output/index.html"></iframe>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

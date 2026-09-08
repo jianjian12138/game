@@ -1,0 +1,37 @@
+# 瞄准弹幕
+# =========
+# 精准瞄准玩家当前位置发射，给玩家压迫感
+
+id: aimed_shot
+loop: true
+global_speed: 1.0
+
+pattern:
+  - type: fire
+    count: 1
+    spread: 0
+    aimed: true         # 瞄准玩家当前位置
+    speed: 5.0
+    bullet:
+      sprite: bullet_yellow
+      damage: 2
+      lifetime: 4.0
+      tags: [aimed]
+
+  - type: wait
+    frames: 45          # 约0.75秒发一颗（60fps基准）
+
+  - type: fire
+    count: 3            # 三连射
+    spread: 20          # 小扩散角
+    aimed: true
+    speed: 4.5
+    offset_angle: -10   # 以瞄准方向为中心散开
+    bullet:
+      sprite: bullet_yellow
+      damage: 1
+      lifetime: 3.5
+      tags: [aimed, spread]
+
+  - type: wait
+    frames: 90          # 三连后较长冷却

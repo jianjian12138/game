@@ -1,0 +1,46 @@
+# 放射状爆发弹幕
+# ================
+# 向四周均匀发射 N 颗子弹，经典 Boss 开场弹幕
+
+id: radial_burst
+loop: false
+global_speed: 1.0
+
+pattern:
+  - type: fire
+    count: 16
+    spread: 360         # 360度均匀分布
+    offset_angle: 0
+    speed: 4.0
+    bullet:
+      sprite: bullet_red
+      damage: 1
+      lifetime: 3.0
+      tags: [piercing]
+
+  - type: wait
+    frames: 30
+
+  - type: fire
+    count: 16
+    spread: 360
+    offset_angle: 11.25  # 旋转半个间隔（交错效果）
+    speed: 3.5
+    bullet:
+      sprite: bullet_orange
+      damage: 1
+      lifetime: 3.0
+
+  - type: wait
+    frames: 30
+
+  - type: fire
+    count: 24
+    spread: 360
+    offset_angle: 7.5
+    speed: 5.0
+    bullet:
+      sprite: bullet_red
+      damage: 2
+      lifetime: 2.5
+      tags: [fast]

@@ -1,0 +1,44 @@
+{
+  "version": "1.0.0",
+  "source": "D:\\jianjian12138\\Mindustry",
+  "clock_and_ticks": {
+    "fixed_tick_rate": 60,
+    "frame_time_ms": 16.6667,
+    "allow_floating_point_tick": false,
+    "conveyor_tile_speed_per_tick": 0.08,
+    "conveyor_throughput_items_per_sec": 4.8,
+    "dual_lane_interleaved": true
+  },
+  "rendering_layer_hierarchy": {
+    "turrets": {
+      "base_texture": "blocks/turrets/bases/block-{size}.png",
+      "shadow_drawn_under_barrels": true,
+      "barrels_under_body": true,
+      "recoil_spring_impulse": true,
+      "top_overlay": "{turret_name}.png",
+      "muzzle_flash_duration_ticks": 6
+    },
+    "drills": {
+      "base_texture": "mechanical-drill.png",
+      "rotor_multitile_rotation": true,
+      "rim_overlay": "mechanical-drill-rim.png"
+    },
+    "environment": {
+      "wall_drop_shadow_2_5d": true,
+      "ore_procedural_veins": true,
+      "omit_artificial_tile_lines": true
+    }
+  },
+  "ui_layout_spec": {
+    "top_left": "waves_main_plus_core_items_compact",
+    "top_right": "minimap_with_coords_and_fps",
+    "bottom_right": "placement_4col_grid_with_vertical_category_strip",
+    "grid_button_size_px": 44
+  },
+  "state_invariants": {
+    "material_conservation": true,
+    "non_negative_inventories": true,
+    "two_dimensional_hitbox_bounds": true,
+    "atomic_zone_transitions": true
+  }
+}

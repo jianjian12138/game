@@ -1,0 +1,92 @@
+# 格斗游戏 AI 行为树预设
+# ========================
+# 适用于：街机格斗、动作游戏、PVP对战
+# 特点：攻防决策、距离判断、连段优先级、防御反击
+
+name: fighting_ai
+description: |
+  格斗AI决策树：距离→攻击类型→防御反击 三层选择。
+  近距离优先爆发连段，远距离优先突进或飞行道具。
+
+root:
+  type: Selector
+  name: 格斗AI主决策
+
+  children:
+    # ── 防御反击（最高优先级）──────────────────────────
+    - type: Sequence
+      name: 反击窗口
+      children:
+        - type: Condition
+          name: 检测到反击机会
+          key: parry_window_open
+          op: has
+        - type: Action
+          name: 执行反击
+          action: perform_counter_attack
+
+    # ── 近距离攻击（距离 < 2）─────────────────────────
+    - type: Sequence
+      name: 近战爆发
+      children:
+        - type: Condition
+          name: 近距离判断
+          key: distance_to_player
+          op: below
+          threshold: 2.0
+        - type: Selector
+          name: 近战选择
+          children:
+            - type: Cooldown
+              cooldown: 8.0
+              child:
+                type: Action
+                name: 超级必杀
+                action: super_move
+            - type: Cooldown
+              cooldown: 3.0
+              child:
+                type: Action
+                name: 特殊攻击
+                action: special_attack
+            - type: Action
+              name: 普通连段
+              action: basic_combo
+
+    # ── 中距离（2–5）─────────────────────────────────
+    - type: Sequence
+      name: 中距离行为
+      children:
+        - type: Condition
+          name: 中距离判断
+          key: distance_to_player
+          op: below
+          threshold: 5.0
+        - type: Selector
+          name: 中距离选择
+          children:
+            - type: Cooldown
+              cooldown: 4.0
+              child:
+                type: Action
+                name: 飞行道具
+                action: throw_projectile
+            - type: Action
+              name: 突进
+              action: dash_forward
+
+    # ── 远距离（>5）──────────────────────────────────
+    - type: Sequence
+      name: 远距离追击
+      children:
+        - type: Selector
+          children:
+            - type: Cooldown
+              cooldown: 2.0
+              child:
+                type: Action
+                name: 弹射道具
+                action: throw_projectile
+            - type: Action
+              name: 缓慢接近
+              action: walk_forward

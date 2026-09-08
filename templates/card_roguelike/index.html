@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SpireAscent — AI-Native Card Roguelike</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body {
+      background: radial-gradient(circle at 50% 30%, #161f30 0%, #080c14 100%);
+      color: #e6edf3;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      overflow: hidden;
+    }
+    #game-frame {
+      position: relative; width: 900px; height: 600px;
+      background: #0d131f; border: 2px solid #30363d; border-radius: 16px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.9), 0 0 50px rgba(0, 238, 255, 0.12);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    /* Top Bar */
+    .top-bar {
+      height: 54px; padding: 0 24px; display: flex; align-items: center; justify-content: space-between;
+      background: rgba(13, 19, 31, 0.9); border-bottom: 1px solid #21262d;
+    }
+    .hero-stat { display: flex; align-items: center; gap: 12px; font-weight: bold; }
+    .bar-shell { width: 160px; height: 12px; background: #21262d; border-radius: 6px; overflow: hidden; }
+    .bar-fill { height: 100%; width: 100%; background: linear-gradient(90deg, #ff416c, #ff4b2b); transition: width 0.2s; }
+    .shield-badge {
+      background: #1f6feb; padding: 2px 8px; border-radius: 10px; font-size: 12px;
+      display: flex; align-items: center; gap: 4px; color: #fff;
+    }
+
+    /* Battlefield */
+    .battle-arena {
+      flex: 1; position: relative; display: flex; align-items: center; justify-content: space-around;
+      padding: 20px 40px;
+    }
+    .combatant {
+      display: flex; flex-direction: column; align-items: center; gap: 12px;
+      position: relative;
+    }
+    .entity-avatar {
+      width: 120px; height: 160px; border-radius: 14px;
+      background: linear-gradient(135deg, #1f293d, #111827);
+      border: 3px solid #388bfd; display: flex; align-items: center; justify-content: center;
+      font-size: 32px; font-weight: bold; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      transition: transform 0.15s;
+    }
+    .enemy-avatar { border-color: #f85149; }
+    .intent-tag {
+      background: rgba(248, 81, 73, 0.2); border: 1px solid #f85149;
+      color: #ff7b72; font-size: 12px; font-weight: bold; padding: 4px 10px; border-radius: 12px;
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+
+    /* Hand Area */
+    .hand-container {
+      height: 190px; background: rgba(8, 12, 20, 0.85); border-top: 1px solid #21262d;
+      padding: 10px 30px; display: flex; align-items: center; justify-content: center; gap: 16px;
+      position: relative;
+    }
+    .mana-orb {
+      position: absolute; left: 24px; top: -28px; width: 56px; height: 56px;
+      background: radial-gradient(circle at 35% 35%, #00eeff, #0969da);
+      border: 3px solid #e6edf3; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 900; color: #fff; box-shadow: 0 0 25px rgba(0, 238, 255, 0.6);
+    }
+    .card-item {
+      width: 115px; height: 165px; border-radius: 10px;
+      background: linear-gradient(145deg, #1e293b, #0f172a);
+      border: 2px solid #475569; padding: 10px; display: flex; flex-direction: column; justify-content: space-between;
+      cursor: pointer; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .card-item:hover {
+      transform: translateY(-24px) scale(1.08);
+      border-color: #00eeff; box-shadow: 0 15px 35px rgba(0, 238, 255, 0.3);
+      z-index: 10;
+    }
+    .card-cost {
+      width: 22px; height: 22px; background: #0969da; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px;
+    }
+    .card-title { font-size: 13px; font-weight: bold; text-align: center; }
+    .card-desc { font-size: 10px; color: #94a3b8; text-align: center; line-height: 1.3; }
+
+    /* End Turn Button */
+    .end-btn {
+      position: absolute; right: 24px; top: -24px;
+      background: linear-gradient(135deg, #238636, #2ea043);
+      color: #fff; font-weight: bold; font-size: 14px;
+      padding: 10px 22px; border-radius: 8px; border: 1px solid #3fb950;
+      cursor: pointer; box-shadow: 0 4px 15px rgba(35, 134, 54, 0.4);
+      transition: transform 0.1s;
+    }
+    .end-btn:hover { transform: scale(1.05); }
+
+    /* Combat Log */
+    #log-stream {
+      position: absolute; bottom: 200px; width: 100%; text-align: center;
+      font-size: 13px; color: #58a6ff; font-weight: bold; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-frame">
+    <!-- Header -->
+    <div class="top-bar">
+      <div class="hero-stat">
+        <span>HERO</span>
+        <div class="bar-shell"><div id="player-hp-bar" class="bar-fill"></div></div>
+        <span id="player-hp-txt">60/60</span>
+        <div class="shield-badge">SHIELD: <span id="player-shield-txt">0</span></div>
+      </div>
+      <div style="font-weight: bold; color: #8b949e;">FLOOR 1 — THE CATACOMBS</div>
+      <div style="font-size: 12px; color: #00eeff;">ACTIVE SYNERGIES: FIRE (+30%)</div>
+    </div>
+
+    <!-- Arena -->
+    <div class="battle-arena">
+      <!-- Player -->
+      <div class="combatant">
+        <div class="entity-avatar" id="player-sprite">WARRIOR</div>
+        <div style="font-size: 12px; color: #8b949e;">Iron Vanguard</div>
+      </div>
+
+      <div id="log-stream">Combat Ready. Draw your cards!</div>
+
+      <!-- Enemy -->
+      <div class="combatant">
+        <div class="intent-tag" id="enemy-intent">ATTACK: 8 DMG</div>
+        <div class="entity-avatar enemy-avatar" id="enemy-sprite">GOBLIN</div>
+        <div class="hero-stat">
+          <div class="bar-shell" style="width: 100px;"><div id="enemy-hp-bar" class="bar-fill"></div></div>
+          <span id="enemy-hp-txt">35/35</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hand -->
+    <div class="hand-container">
+      <div class="mana-orb" id="mana-counter">3</div>
+      <div class="end-btn" onclick="endTurn()">END TURN</div>
+      <div id="cards-row" style="display: flex; gap: 14px;"></div>
+    </div>
+  </div>
+
+  <script>
+    let playerHp = 60, playerMaxHp = 60, playerShield = 0;
+    let enemyHp = 35, enemyMaxHp = 35, enemyShield = 0;
+    let currentMana = 3, maxMana = 3;
+
+    const deck = [
+      { id: "s1", name: "Strike", cost: 1, type: "DAMAGE", val: 6, desc: "Deal 6 physical damage." },
+      { id: "s2", name: "Strike", cost: 1, type: "DAMAGE", val: 6, desc: "Deal 6 physical damage." },
+      { id: "d1", name: "Defend", cost: 1, type: "SHIELD", val: 5, desc: "Gain 5 shield armor." },
+      { id: "d2", name: "Defend", cost: 1, type: "SHIELD", val: 5, desc: "Gain 5 shield armor." },
+      { id: "f1", name: "Ignite", cost: 2, type: "DAMAGE", val: 14, isFire: true, desc: "Deal 14 fire damage. Synergy bonus +30%." },
+    ];
+
+    let hand = [];
+
+    function renderHUD() {
+      document.getElementById('player-hp-bar').style.width = (playerHp / playerMaxHp * 100) + '%';
+      document.getElementById('player-hp-txt').textContent = playerHp + '/' + playerMaxHp;
+      document.getElementById('player-shield-txt').textContent = playerShield;
+
+      document.getElementById('enemy-hp-bar').style.width = (enemyHp / enemyMaxHp * 100) + '%';
+      document.getElementById('enemy-hp-txt').textContent = enemyHp + '/' + enemyMaxHp;
+      document.getElementById('mana-counter').textContent = currentMana;
+    }
+
+    function renderHand() {
+      const row = document.getElementById('cards-row');
+      row.innerHTML = '';
+      hand.forEach((card, idx) => {
+        const div = document.createElement('div');
+        div.className = 'card-item';
+        div.innerHTML = `
+          <div style="display: flex; justify-content: space-between;">
+            <div class="card-cost">${card.cost}</div>
+            <div style="font-size: 10px; color: ${card.isFire ? '#ff7b72' : '#58a6ff'}; font-weight: bold;">
+              ${card.isFire ? 'FIRE' : card.type}
+            </div>
+          </div>
+          <div class="card-title">${card.name}</div>
+          <div class="card-desc">${card.desc}</div>
+        `;
+        div.onclick = () => playCard(idx);
+        row.appendChild(div);
+      });
+    }
+
+    function drawCards(n) {
+      hand = [];
+      for (let i = 0; i < n; i++) {
+        hand.push(deck[Math.floor(Math.random() * deck.length)]);
+      }
+      renderHand();
+    }
+
+    function playCard(idx) {
+      const card = hand[idx];
+      if (currentMana < card.cost) {
+        setLog("Insufficient energy crystal!");
+        return;
+      }
+      currentMana -= card.cost;
+      hand.splice(idx, 1);
+
+      if (card.type === 'DAMAGE') {
+        let dmg = card.val;
+        if (card.isFire) dmg = Math.round(dmg * 1.3); // Synergy bonus
+        enemyHp = Math.max(0, enemyHp - dmg);
+        setLog(`Played ${card.name}! Dealt ${dmg} damage!`);
+        shakeEntity('enemy-sprite');
+      } else if (card.type === 'SHIELD') {
+        playerShield += card.val;
+        setLog(`Played ${card.name}! Gained ${card.val} shield.`);
+      }
+
+      renderHUD();
+      renderHand();
+
+      if (enemyHp <= 0) {
+        setLog("ENEMY DEFEATED! Floor Cleared.");
+      }
+    }
+
+    function endTurn() {
+      if (enemyHp <= 0) return;
+      setLog("Goblin strikes back for 8 damage!");
+      shakeEntity('player-sprite');
+
+      const absorbed = Math.min(playerShield, 8);
+      playerShield -= absorbed;
+      const rem = 8 - absorbed;
+      playerHp = Math.max(0, playerHp - rem);
+
+      // Start player turn
+      playerShield = 0;
+      currentMana = maxMana;
+      drawCards(4);
+      renderHUD();
+    }
+
+    function setLog(msg) {
+      document.getElementById('log-stream').textContent = msg;
+    }
+
+    function shakeEntity(id) {
+      const el = document.getElementById(id);
+      el.style.transform = 'translateX(8px) scale(0.95)';
+      setTimeout(() => el.style.transform = 'translateX(-8px) scale(1.05)', 60);
+      setTimeout(() => el.style.transform = 'translateX(0) scale(1)', 140);
+    }
+
+    // Start
+    drawCards(4);
+    renderHUD();
+  </script>
+</body>
+</html>

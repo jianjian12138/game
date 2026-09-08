@@ -1,0 +1,33 @@
+{
+  "total_games": 411,
+  "category_distribution": {
+    "Arcade & Action (街机与动作)": 45,
+    "Platformers (平台跳跃)": 42,
+    "Roguelike & RPG (肉鸽与角色扮演)": 26,
+    "Strategy & Defense (策略与塔防)": 18,
+    "Puzzle & Casual (益智解谜与休闲)": 35,
+    "Multiplayer & Card (多人与桌游)": 19
+  },
+  "technical_pillars": {
+    "1. 像素/贴图资产体系 (Sprite & Asset Pipeline)": [
+      "真实精灵图 (Sprite Sheet): 闲置(Idle)、行走(Walk)、攻击(Attack)、受击(Hurt)、死亡(Die) 多帧逐帧动画",
+      "瓦片地牢地图 (Tilemap & Tileset): 9宫格拼接地砖、墙体碰撞体、装饰物、火把动态光影",
+      "告别纯几何绘制: 纯靠 ctx.arc 和 ctx.fillRect 画出的圆圈方块不是游戏，必须具备真实的美术资产表达力"
+    ],
+    "2. 游戏引擎与架构标准 (Game Engine Architecture)": [
+      "Phaser / Pixi / MelonJS / 自研纯Canvas高保真引擎",
+      "清晰的场景栈生命周期: BootScene -> PreloadScene -> MenuScene -> GameScene -> GameOverScene",
+      "实体组件与对象池系统 (Entity Component & Object Pooling): 弹幕、粒子、伤害飘字、掉落物复用，避免GC掉帧",
+      "确定性物理与碰撞系统 (AABB / SAT / 射线碰撞检测)"
+    ],
+    "3. 核心机制与手感 (Game Feel & Juice)": [
+      "打击停顿 (Hit-Stop 3~5帧) + 创伤震屏 (Trauma Shake) + 残影拖尾",
+      "受击闪白 (Damage Flash) + 击退冲量 (Knockback) + 屏幕边缘战损色差",
+      "丰富的敌人行为树: 追击、风筝、蓄力突刺、环形弹幕、激光扫射、召唤自爆虫"
+    ],
+    "4. 视听多巴胺闭环 (Audio & Metagame)": [
+      "多通道复音音频 (Polyphonic Synth / Chiptune): 主旋律BGM + 射击/砍击/受击/升级音效通道",
+      "局外成长 (Meta-progression) + 商业化卡点与提审标准"
+    ]
+  }
+}
