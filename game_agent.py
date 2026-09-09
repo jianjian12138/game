@@ -337,7 +337,7 @@ def cmd_balance(args):
 def cmd_distribute(args):
     from pipeline.commercial_distribution_hub import CommercialDistributionHub
     title = getattr(args, "title", "商业级独立大作")
-    platform = getattr(args, "platform", "all")
+    platform = "all" if getattr(args, "dist_all", False) else getattr(args, "platform", "all")
     src_html = Path(args.input) if getattr(args, "input", None) else ROOT / "output" / "index.html"
     dist_root = Path(args.output) if getattr(args, "output", None) else ROOT / "output" / "dist"
 
@@ -682,6 +682,7 @@ def main():
     p_distribute = sub.add_parser("distribute", parents=[llm_parent], help="多平台自动化分发中枢 (WeChat/Steam/PWA/itch.io)")
     p_distribute.add_argument("--title", type=str, default="商业级独立大作", help="游戏名称")
     p_distribute.add_argument("--platform", type=str, default="all", choices=["all", "wechat", "steam", "pwa", "itch"], help="分发目标平台")
+    p_distribute.add_argument("--all", dest="dist_all", action="store_true", help="构建全部平台分发包 (等价于 --platform all)")
     p_distribute.add_argument("--input", type=str, default="", help="待分发主 HTML 文件路径")
     p_distribute.add_argument("--output", type=str, default="", help="分发包输出目录")
 
