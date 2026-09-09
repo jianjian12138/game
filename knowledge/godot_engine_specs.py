@@ -19,10 +19,10 @@ class GodotEngineSpecsKnowledge:
         8: {"name": "Interactables", "description": "宝箱、NPC、传送门交互触发区"}
     }
 
-    # 2. 标准场景树组织规范 (Scene Tree Architecture)
+    # 2. 标准场景树组织规范 (Scene Tree Architecture - Godot 4.3/4.7 标准)
     SCENE_TREE_STANDARD = """
     Main (Node2D / Node3D) [脚本: main.gd]
-    ├── Environment (TileMap / WorldEnvironment)
+    ├── Environment (TileMapLayer / WorldEnvironment)
     ├── Entities
     │   ├── Player (CharacterBody2D / 3D) [CollisionLayer: 2, Mask: 1, 5, 6, 7]
     │   └── Enemies (Node)
@@ -151,3 +151,33 @@ fire={
 ]
 }
 """
+
+    # 7. Godot 4.7 强类型信号与参数导出规范 (Strict Signal & Export Contract)
+    GD_SCRIPT_47_SIGNALS_AND_EXPORTS = """# Godot 4.7 强类型信号契约 (严禁弱类型信号与无形参信号)
+signal health_changed(current_health: int, max_health: int)
+signal score_updated(delta: int, total: int)
+signal state_transitioned(from_state: StringName, to_state: StringName)
+
+# 工业级结构化属性分组导出 (@export_group / @export_subgroup)
+@export_group("Combat Specs", "combat_")
+@export_range(1, 1000, 1) var combat_base_damage: int = 25
+@export_range(0.1, 5.0, 0.05) var combat_attack_interval: float = 0.5
+@export var combat_is_invincible: bool = false
+
+@export_group("Movement Physics", "move_")
+@export var move_speed: float = 300.0
+@export var move_accel: float = 1200.0
+@export var move_friction: float = 800.0
+
+@export_subgroup("Jump & Wall Run")
+@export var move_jump_velocity: float = -450.0
+@export var move_coyote_time_sec: float = 0.12
+"""
+
+    # 8. Godot 4.7 TileMapLayer 现代化地形瓦片标准
+    TILEMAP_LAYER_47_STANDARD = """# Godot 4.7 TileMapLayer 架构：瓦片分层严格解耦
+# Layer 0: GroundTileMapLayer (无碰撞地面瓦片)
+# Layer 1: WallObstacleTileMapLayer (带 PhysicsBody 掩码静态阻挡瓦片)
+# Layer 2: DecorationTileMapLayer (Y-Sort 遮挡与视觉前景瓦片)
+"""
+

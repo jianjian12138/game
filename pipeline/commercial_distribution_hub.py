@@ -113,13 +113,88 @@ class CommercialDistributionHub:
         launch_bat = steam_dir / "launch_game.bat"
         launch_bat.write_text(f'@echo off\r\necho 正在启动《{title}》Steam 客户端...\r\nstart index.html\r\n', encoding="utf-8")
 
+        # 5. 生成 SteamPipe 自动化提包配置 (app_build.vdf & depot_build.vdf)
+        app_vdf = f""""appbuild"
+{{
+  "appid" "{app_id}"
+  "desc" "SteamPipe Automated Build for {title}"
+  "buildoutput" "..\\\\output"
+  "contentroot" ".\\\\content"
+  "setlive" ""
+  "depots"
+  {{
+    "{app_id + 1}" "depot_build_{app_id + 1}.vdf"
+  }}
+}}
+"""
+        (steam_dir / f"app_build_{app_id}.vdf").write_text(app_vdf, encoding="utf-8")
+
+        depot_vdf = f""""DepotBuildConfig"
+{{
+  "DepotID" "{app_id + 1}"
+  "contentroot" "."
+  "FileMapping"
+  {{
+    "LocalPath" "*"
+    "DepotPath" "."
+    "recursive" "1"
+  }}
+  "FileExclusion" "*.pdb"
+}}
+"""
+        (steam_dir / f"depot_build_{app_id + 1}.vdf").write_text(depot_vdf, encoding="utf-8")
+
         return {
             "platform": "Steam_Desktop",
             "output_dir": str(steam_dir),
             "steam_app_id": app_id,
             "achievements_count": len(achievements["achievements"]),
             "cloud_save_configured": True,
-            "files": ["index.html", "steam_appid.txt", "achievements_and_cloud.json", "launch_game.bat"]
+            "steampipe_configured": True,
+            "files": [
+                "index.html", "steam_appid.txt", "achievements_and_cloud.json",
+                "launch_game.bat", f"app_build_{app_id}.vdf", f"depot_build_{app_id + 1}.vdf"
+            ]
+        }
+
+    @staticmethod
+    def distribute_itch(
+        title: str,
+        html_file: Path,
+        dist_root: Path,
+        itch_user: str = "antigravity",
+        game_slug: str = "game-showcase"
+    ) -> Dict[str, Any]:
+        """构建 itch.io 独立分发包与 Butler CLI 自动化推送契约"""
+        itch_dir = dist_root / "itch"
+        itch_dir.mkdir(parents=True, exist_ok=True)
+
+        target_html = itch_dir / "index.html"
+        shutil.copy2(html_file, target_html)
+
+        itch_manifest = {
+            "title": title,
+            "version": "1.0.0",
+            "channels": {
+                "html5": "index.html",
+                "windows": "launch_game.bat"
+            },
+            "orientation": "landscape",
+            "viewport": {"width": 1280, "height": 720}
+        }
+        (itch_dir / "itch.json").write_text(json.dumps(itch_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+
+        # Butler CLI 一键推送脚本
+        butler_bat = itch_dir / "butler_push.bat"
+        butler_bat.write_text(f'@echo off\r\necho [Butler] 正在将《{title}》推送到 itch.io ({itch_user}/{game_slug}:html5)...\r\nbutler push . {itch_user}/{game_slug}:html5 --userversion 1.0.0\r\n', encoding="utf-8")
+
+        return {
+            "platform": "itch_io",
+            "output_dir": str(itch_dir),
+            "user": itch_user,
+            "slug": game_slug,
+            "butler_supported": True,
+            "files": ["index.html", "itch.json", "butler_push.bat"]
         }
 
     @staticmethod
@@ -313,6 +388,9 @@ self.addEventListener('fetch', (e) => {{
         pwa_res = CommercialDistributionHub.distribute_web_pwa(title, src_html, dist_root)
         print(f"  [WEB PWA OFFLINE] 构建完毕 -> {pwa_res['output_dir']} (SW 离线缓存已注入)")
 
+        itch_res = CommercialDistributionHub.distribute_itch(title, src_html, dist_root)
+        print(f"  [ITCH.IO BUTLER]  构建完毕 -> {itch_res['output_dir']} (Butler 自动推送契约就绪)")
+
         compliance = CommercialDistributionHub.audit_compliance(dist_root)
         print(f"  [COMPLIANCE GATE] 合规评级: {compliance['compliance_verdict']} ({compliance['passed_checks']}/{compliance['total_checks']} 项达标)")
         print("=====================================================================")
@@ -323,7 +401,8 @@ self.addEventListener('fetch', (e) => {{
             "platforms": {
                 "wechat": wx_res,
                 "steam": steam_res,
-                "pwa": pwa_res
+                "pwa": pwa_res,
+                "itch": itch_res
             },
             "compliance": compliance
         }

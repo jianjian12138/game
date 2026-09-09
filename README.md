@@ -39,6 +39,12 @@
 # 全局统一开发命令行 (生产流水线)
 python game_agent.py create "赛博幸存者" --genre "2D弹幕射击"
 
+# 两阶段多引擎指纹智能嗅探与团队匹配
+python game_agent.py route --detect . --prompt "次时代机甲PBR打击感"
+
+# 四端全渠道商业分发包构建 (WeChat / SteamPipe / Web PWA / itch.io)
+python game_agent.py distribute --all
+
 # 启动本地可视化工作室控制台与仪表盘
 python server.py --browser --port 8090
 ```

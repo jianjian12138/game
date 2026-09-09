@@ -9,6 +9,7 @@ import sys
 import unittest
 import json
 import re
+import shutil
 from pathlib import Path
 
 # 确保根目录进入 sys.path
@@ -308,6 +309,85 @@ class Test12_NextGen3AShowcaseDeliveryAudit(unittest.TestCase):
         self.assertIn("PBR_ASSETS", va_content)
         self.assertIn("LOD_MESH_DATA", va_content)
 
+
+class Test13_EngineFingerprintRouterAudit(unittest.TestCase):
+    """验证两阶段引擎指纹自动嗅探与任务叠加路由 (EngineFingerprintDetector)"""
+
+    def test_engine_fingerprint_detection_and_additive_routing(self):
+        import tempfile
+        from core.setting_overview import EngineFingerprintDetector
+
+        # 1. 验证默认/空目录自适应回退
+        res_default = EngineFingerprintDetector.detect_engine(ROOT)
+        self.assertIn("engine_id", res_default)
+        self.assertGreater(res_default["confidence"], 0.0)
+
+        # 2. 验证 Godot 指纹嗅探
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_p = Path(tmp_dir)
+            (tmp_p / "project.godot").write_text("config_version=5\n", encoding="utf-8")
+            res_godot = EngineFingerprintDetector.detect_engine(tmp_p)
+            self.assertEqual(res_godot["engine_id"], "godot")
+            self.assertEqual(res_godot["confidence"], 1.0)
+            self.assertIn("platform_porting_engineer", res_godot["recommended_agents"])
+
+        # 3. 验证 Rust Bevy 指纹嗅探
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_p = Path(tmp_dir)
+            (tmp_p / "Cargo.toml").write_text('[dependencies]\nbevy = "0.13"\n', encoding="utf-8")
+            res_rust = EngineFingerprintDetector.detect_engine(tmp_p)
+            self.assertEqual(res_rust["engine_id"], "rust_native")
+            self.assertIn("zero_gc_ecs_director", res_rust["recommended_agents"])
+
+        # 4. 验证领域学科与玩法叠加装配 (Additive Routing)
+        route_pack = EngineFingerprintDetector.route_task(ROOT, "次时代PBR机甲打击感震屏")
+        self.assertIn("next_gen_sculpting_director", route_pack["composite_agent_team"])
+        self.assertIn("pbr_five_channel_baking", route_pack["composite_skill_stack"])
+        self.assertIn("screen_shake_effect", route_pack["composite_skill_stack"])
+
+
+class Test14_MultiChannelDistributionAudit(unittest.TestCase):
+    """验证微信、Steam (SteamPipe)、itch.io (Butler) 与 Web PWA 全渠道商业发行管线"""
+
+    def test_multi_channel_distribution_and_compliance(self):
+        from pipeline.commercial_distribution_hub import CommercialDistributionHub
+        test_dist_dir = ROOT / "output" / "dist_test_gate"
+
+        try:
+            report = CommercialDistributionHub.distribute_all(
+                title="星际防线：终极指令",
+                output_root=test_dist_dir
+            )
+
+            # 1. 验证四大渠道全部就绪
+            self.assertEqual(report["status"], "success")
+            platforms = report["platforms"]
+            self.assertIn("wechat", platforms)
+            self.assertIn("steam", platforms)
+            self.assertIn("pwa", platforms)
+            self.assertIn("itch", platforms)
+
+            # 2. 微信小游戏契约
+            self.assertTrue(platforms["wechat"]["is_4mb_compliant"])
+
+            # 3. Steam SteamPipe VDF 配置文件契约
+            self.assertTrue(platforms["steam"]["steampipe_configured"])
+            steam_dir = Path(platforms["steam"]["output_dir"])
+            self.assertTrue((steam_dir / "app_build_480.vdf").exists())
+            self.assertTrue((steam_dir / "depot_build_481.vdf").exists())
+
+            # 4. itch.io Butler CLI 契约
+            self.assertTrue(platforms["itch"]["butler_supported"])
+            itch_dir = Path(platforms["itch"]["output_dir"])
+            self.assertTrue((itch_dir / "itch.json").exists())
+            self.assertTrue((itch_dir / "butler_push.bat").exists())
+
+            # 5. 合规门禁审查
+            self.assertIn(report["compliance"]["compliance_verdict"], ("CERTIFIED_SAFE", "ACCEPTABLE_WITH_WARNINGS"))
+            self.assertEqual(report["compliance"]["passed_checks"], 3)
+        finally:
+            if test_dist_dir.exists():
+                shutil.rmtree(test_dist_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

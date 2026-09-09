@@ -33,7 +33,7 @@ def cmd_agents(args):
 
 def cmd_skills(args):
     from core.registry import GAME_SKILLS
-    print(f"[SKILLS] 游戏开发 108 个专项技能大典 (共 {len(GAME_SKILLS)} 项):\n")
+    print(f"[SKILLS] 游戏开发专项技能大典 (共 {len(GAME_SKILLS)} 项):\n")
     cats = {}
     for s in GAME_SKILLS:
         cats.setdefault(s["category"], []).append(s)
@@ -50,7 +50,20 @@ def cmd_hooks(args):
         print(f"  [{idx:02d}] 阶段: {h['phase']:<16} | 钩子: {h['id']:<22} -> {h['name']}")
 
 def cmd_route(args):
-    from core.setting_overview import SettingOverviewRouter
+    from core.setting_overview import SettingOverviewRouter, EngineFingerprintDetector
+    detect_path = getattr(args, "detect", "")
+    if detect_path:
+        target_dir = Path(detect_path).resolve()
+        prompt_txt = getattr(args, "prompt", "")
+        print(f"[ROUTE-DETECT] 🔍 启动两阶段引擎指纹自动探测: {target_dir}")
+        res = EngineFingerprintDetector.route_task(target_dir, prompt_txt)
+        eng = res["engine"]
+        print(f"  [DETECTED ENGINE] {eng['engine_name']} (置信度: {int(eng['confidence']*100)}%)")
+        print(f"  [FINGERPRINT EVIDENCE] {eng['evidence']}")
+        print(f"  [RECOMMENDED AGENTS] {', '.join(res['composite_agent_team'])}")
+        print(f"  [RECOMMENDED SKILLS] {', '.join(res['composite_skill_stack'])}")
+        return
+
     preset = args.preset or "rust_macroquad_2d"
     print(f"[ROUTE] 启动 GameFactory-3A 前置路由中枢，锁定《{preset}》规范与约束...")
     router = SettingOverviewRouter(ROOT)
@@ -331,16 +344,19 @@ def cmd_distribute(args):
     print(f"[DISTRIBUTE] 启动多平台自动化分发中枢: 《{title}》[目标平台: {platform}]...")
     if platform == "all":
         res = CommercialDistributionHub.distribute_all(title, src_html, dist_root)
-        print(f"  [RESULT] 三端构建完成，合规状态: {res['compliance']['compliance_verdict']}")
+        print(f"  [RESULT] 四端全渠道商业分发包构建完成 (WeChat/Steam/PWA/itch.io)，合规状态: {res['compliance']['compliance_verdict']}")
     elif platform == "wechat":
         res = CommercialDistributionHub.distribute_wechat(title, src_html, dist_root)
         print(f"  [WECHAT] 微信小游戏打包完成: {res['output_dir']} (4MB 合规: {res['is_4mb_compliant']})")
     elif platform == "steam":
         res = CommercialDistributionHub.distribute_steam(title, src_html, dist_root)
-        print(f"  [STEAM] Steam 桌面包构建完成: {res['output_dir']}")
+        print(f"  [STEAM] Steam 桌面包与 SteamPipe VDF 构建完成: {res['output_dir']}")
     elif platform == "pwa":
         res = CommercialDistributionHub.distribute_web_pwa(title, src_html, dist_root)
         print(f"  [PWA] Web PWA 离线安装包构建完成: {res['output_dir']}")
+    elif platform == "itch":
+        res = CommercialDistributionHub.distribute_itch(title, src_html, dist_root)
+        print(f"  [ITCH] itch.io 独立分发包与 Butler 脚本构建完成: {res['output_dir']}")
 
 def cmd_spec(args):
     from core.planner import GameStudioPlanner
@@ -585,8 +601,10 @@ def main():
     p_3d = sub.add_parser("3d-pipeline", help="运行次时代 3A PBR/LOD 资产与展台自动化生成流水线")
     p_3d.add_argument("--out", type=str, default="", help="指定自定义 HTML 输出路径")
     
-    p_route = sub.add_parser("route", help="执行 GameFactory-3A 前置路由锁定")
+    p_route = sub.add_parser("route", help="执行 GameFactory-3A 前置路由锁定与多引擎指纹探测")
     p_route.add_argument("--preset", type=str, default="rust_macroquad_2d", help="预设名称")
+    p_route.add_argument("--detect", type=str, default="", help="指定目录执行两阶段引擎指纹自动嗅探")
+    p_route.add_argument("--prompt", type=str, default="", help="用户意图提示词 (用于叠加推荐领域专家与技能)")
 
     sub.add_parser("contract", help="执行 GameFactory-3A 三层单向解耦契约静态检查")
     sub.add_parser("distill", help="执行 Book-to-Skill 大师著作蒸馏")
@@ -661,9 +679,9 @@ def main():
     p_balance.add_argument("--levels", type=int, default=20, help="心流关卡测试数")
     p_balance.add_argument("--use-llm", action="store_true", help="调用 LLM 生成数值重构与平滑建议")
 
-    p_distribute = sub.add_parser("distribute", parents=[llm_parent], help="多平台自动化分发中枢 (WeChat/Steam/PWA)")
+    p_distribute = sub.add_parser("distribute", parents=[llm_parent], help="多平台自动化分发中枢 (WeChat/Steam/PWA/itch.io)")
     p_distribute.add_argument("--title", type=str, default="商业级独立大作", help="游戏名称")
-    p_distribute.add_argument("--platform", type=str, default="all", choices=["all", "wechat", "steam", "pwa"], help="分发目标平台")
+    p_distribute.add_argument("--platform", type=str, default="all", choices=["all", "wechat", "steam", "pwa", "itch"], help="分发目标平台")
     p_distribute.add_argument("--input", type=str, default="", help="待分发主 HTML 文件路径")
     p_distribute.add_argument("--output", type=str, default="", help="分发包输出目录")
 
