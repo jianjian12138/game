@@ -96,6 +96,9 @@ class VerbAssembler:
             return VerbAssembler._generate_rigorous_snake(title, custom_rules)
         elif any(k in prompt_text for k in ("砖", "打砖块", "弹球", "pong", "breakout")):
             return VerbAssembler._generate_rigorous_breakout(title, custom_rules)
+        elif any(k in prompt_text for k in ("次时代", "次世代", "pbr", "3a", "lod", "机甲展台", "3d次时代")):
+            from pipeline.next_gen_3d_pipeline import NextGen3AShowcaseGenerator
+            return NextGen3AShowcaseGenerator.generate_showcase_html_content()
         else:
             domain_model = GameDomainModeler.deduce_domain_model(title, genre, custom_rules)
             compiled_code = DataDrivenCompiler.compile_playable_game(domain_model)

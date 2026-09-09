@@ -53,7 +53,21 @@ document.addEventListener("DOMContentLoaded", () => {
     return entry;
   }
 
+  // 非阻塞气泡提示
+  let toastTimer = null;
+  window.showDashboardToast = function(msg) {
+    const toast = document.getElementById("dashboard-toast");
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toast.classList.remove("show");
+    }, 3500);
+  };
+
   const PRESET_RULES = {
+    "3D次时代": "次时代 3A 机甲展台规则：Three.js 3D WebGL PBR 渲染。五通道物理材质 (Albedo/Normal/Roughness/AO/Emissive)，三级 LOD (LOD0/1/2) 阶梯减面与自适应距离调度，16 关节骨骼动力学与 4 套动作平滑融合，3D HRTF 空间音频定位。",
     "cs": "3D FPS 射击规则：Three.js 3D WebGL PBR 渲染。鼠标控制第一人称准星视角，WASD移动，空格跳跃。左键开火射击，R键换弹。敌人具备 3D 寻路与巡逻追击 AI。Hitbox 区分头部(4x爆头暴击)与躯干伤害。消灭全图敌方特战队即获胜。",
     "我的世界": "3D 体素沙盒规则：Three.js 3D 空间三维网格。WASD移动，鼠标环顾，空格跳跃与重力物理。左键破坏方块，右键放置方块，数字键1-4切换草方块/泥土/石块/砖块材质。支持无限创造与建造。",
     "梦幻西游": "回合制 RPG 战斗规则：3v3 双方阵营站位对决。玩家可下达普通攻击、大唐官府【横扫千军(三连击)】、魔王寨【三昧真火(法暴)】、化生寺【普渡众生(群疗)】等指令。严密回合状态机循环，暴击飘字与胜负结算。",
@@ -68,6 +82,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const PRESET_TITLES = {
+    "3D次时代": "次时代 3A 工业重装机甲展台",
     "cs": "反恐前线：幽灵突击 3D",
     "我的世界": "我的世界：无尽体素 3D",
     "梦幻西游": "梦幻神魔录：大闹天宫",
@@ -90,7 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
   btnResearch.addEventListener("click", () => {
     const query = gameInput.value.trim();
     if (!query) {
-      alert("请先输入想要调研的游戏名称！");
+      showDashboardToast("⚠️ 请先输入想要调研的游戏名称！");
       return;
     }
     btnResearch.disabled = true;

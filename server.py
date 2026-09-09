@@ -63,7 +63,8 @@ class StudioHTTPHandler(BaseHTTPRequestHandler):
                 {"id": "survivor_danmaku", "name": "赛博弹幕幸存者 (Roguelike Survivor)", "genre": "2D弹幕射击"},
                 {"id": "card_deck_builder", "name": "深渊爬塔卡牌构筑 (Deck Builder)", "genre": "策略卡牌"},
                 {"id": "titan_mech_2d", "name": "泰坦机甲工业引擎演示 (Industrial 2D)", "genre": "动作射击"},
-                {"id": "humanoid_3d", "name": "3D 人形骨骼蒙皮动画 (Skeletal 3D)", "genre": "3D动作"}
+                {"id": "humanoid_3d", "name": "3D 人形骨骼蒙皮动画 (Skeletal 3D)", "genre": "3D动作"},
+                {"id": "next_gen_3a_pbr", "name": "3A 次时代物理材质与 LOD 展台 (Next-Gen 3D PBR/LOD)", "genre": "3D次时代"}
             ]
             self.send_json(200, templates)
 

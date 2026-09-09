@@ -299,7 +299,8 @@ const ComplianceSystem = {
       }
       if (rejectBtn) {
         rejectBtn.onclick = () => {
-          alert('需要同意隐私指引才能进入游戏。游戏即将暂停。');
+          if (window.showToast) window.showToast('需要同意隐私指引才能进入游戏。游戏即将暂停。');
+          else console.warn('需要同意隐私指引才能进入游戏。游戏即将暂停。');
         };
       }
     }

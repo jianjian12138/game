@@ -198,6 +198,48 @@ class RedTeamInquisitor:
             penalties += 35
 
         # =====================================================================
+        # 7. 探针七: 3D 次时代 PBR 物理渲染与切线法线审查 (VETO_NON_PBR_OR_RAW_MATERIAL)
+        # 针对次时代/3A 项目，强制 PBR 微表面物理管线与切线空间法线贴图
+        # =====================================================================
+        is_nextgen_target = ("next_gen" in title.lower() or "3a" in title.lower() or "next_gen" in html_or_js.lower() or "titan" in title.lower())
+        if is_nextgen_target:
+            has_pbr_standard = bool("MeshStandardMaterial" in html_or_js or "MeshPhysicalMaterial" in html_or_js or "PBR" in html_or_js)
+            has_normal_map = bool("normalMap" in html_or_js or "normalTex" in html_or_js or "tangent" in html_or_js.lower())
+            has_roughness_metal = bool("roughnessMap" in html_or_js or "metalnessMap" in html_or_js or ("roughness" in html_or_js and "metalness" in html_or_js))
+
+            if not has_pbr_standard:
+                veto_hits.append("VETO_NON_PBR_OR_RAW_MATERIAL")
+                indictments.append("【次时代材质一票否决】3D 场景缺失 MeshStandardMaterial/PhysicalMaterial PBR 物理着色器，使用简陋无光照/非物理材质！")
+                penalties += 35
+
+            if not has_normal_map:
+                veto_hits.append("VETO_NON_PBR_OR_RAW_MATERIAL")
+                indictments.append("【次时代材质一票否决】缺失切线空间法线贴图 (Normal Map) 与凹凸摄动管线，模型表面平淡毫无微观结构！")
+                penalties += 30
+
+            if not has_roughness_metal:
+                veto_hits.append("VETO_NON_PBR_OR_RAW_MATERIAL")
+                indictments.append("【次时代材质一票否决】缺失粗糙度 (Roughness) 与金属度 (Metalness) 微表面物理工作流！")
+                penalties += 25
+
+            # =====================================================================
+            # 8. 探针八: 多级 LOD 渲染预算与动态调度审查 (VETO_MISSING_LOD_OR_BUDGET_OVERFLOW)
+            # 针对 3A/次时代重度项目，必须拥有 LOD0/LOD1/LOD2 降面梯队与距离切换管理
+            # =====================================================================
+            has_lod_suite = bool(("LOD0" in html_or_js and "LOD1" in html_or_js and "LOD2" in html_or_js) or "THREE.LOD" in html_or_js)
+            has_lod_switch_logic = bool("setLODMode" in html_or_js or "updateActiveLOD" in html_or_js or "switch_distance" in html_or_js or "addLevel" in html_or_js)
+
+            if not has_lod_suite:
+                veto_hits.append("VETO_MISSING_LOD_OR_BUDGET_OVERFLOW")
+                indictments.append("【渲染预算一票否决】次时代项目缺失 LOD0/LOD1/LOD2 阶梯式减面模型组，违背千人同屏与低端机包容原则！")
+                penalties += 35
+
+            if not has_lod_switch_logic:
+                veto_hits.append("VETO_MISSING_LOD_OR_BUDGET_OVERFLOW")
+                indictments.append("【渲染预算一票否决】缺失视口距离或屏幕占比驱动的 LOD 动态切换逻辑！")
+                penalties += 25
+
+        # =====================================================================
         # 综合裁决 (Verdict Calculation)
         # 只要触发任何一项 VETO，分数直接封顶在 45 分，判定绝不姑息！
         # =====================================================================
@@ -265,7 +307,10 @@ class RedTeamInquisitor:
             "VETO_EMPTY_AUDIO_BGM": ("哑巴无背景音乐否决", "缺少持续 BGM 合成时钟与音阶序列调度器"),
             "VETO_RUBBER_STAMP_FRAUD": ("形式主义欺骗否决", "存在死循环、无出口代码或未使用的伪变量"),
             "VETO_MONETIZATION_DEADEND": ("商业死胡同否决", "广告契约无真实闭环回调或缺少 48 字健康忠告合规"),
-            "VETO_ENGINE_ARCH_DEFICIENCY": ("C++引擎架构缺失否决", "工业级项目缺失 TransformNode 场景图、BatchRenderer 动态合批、视锥裁剪或 Profiler HUD")
+            "VETO_ENGINE_ARCH_DEFICIENCY": ("C++引擎架构缺失否决", "工业级项目缺失 TransformNode 场景图、BatchRenderer 动态合批、视锥裁剪或 Profiler HUD"),
+            "VETO_SEMI_FINISHED_PROTOTYPE": ("半成品一票否决", "生产代码中残留 Math.hypot 开方或 alert() 阻塞弹窗"),
+            "VETO_NON_PBR_OR_RAW_MATERIAL": ("次时代非PBR材质否决", "3D项目缺失 MeshStandard/PhysicalMaterial 物理着色器或切线空间法线贴图"),
+            "VETO_MISSING_LOD_OR_BUDGET_OVERFLOW": ("渲染预算与LOD缺失否决", "次时代项目缺失 LOD0/LOD1/LOD2 阶梯式减面模型或动态调度逻辑")
         }
 
         hard_vetoes_triggered = []

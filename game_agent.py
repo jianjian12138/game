@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 game_agent.py: 游戏开发多智能体工作室全能统一管理 CLI (Game Agent CLI v2.2 Novel-to-Game Edition)
-融合 75 位专家智能体、108 个专项技能、12 个生命周期 Hooks、GameFactory-3A 路由契约、Novel-to-Game 设定提取与五步可玩门禁、Book-to-Skill 著作蒸馏与 CCGS 编排中枢。
+融合 82 位专家智能体、114 个专项技能、12 个生命周期 Hooks、GameFactory-3A 路由契约、Novel-to-Game 设定提取与五步可玩门禁、Book-to-Skill 著作蒸馏与 CCGS 编排中枢。
 
 纯 Python 3.10+ 标准库实现，零外部依赖。
 """
@@ -560,7 +560,12 @@ def cmd_mindustry(args):
     print(f"  [GAME TARGET] {target}")
     red_res = RedTeamInquisitor.audit_game(target)
     print(f"  [REDTEAM VERDICT] [{red_res['verdict']}] 评分: {red_res['overall_score']} / 100 | 否决项: {len(red_res['hard_vetoes_triggered'])}")
-    print(f"  [RELEASE] 工业级沙盒塔防标杆游戏就绪，具备 47 转角城墙、传送带背压与向量场蜂群攻城！")
+def cmd_3d_pipeline(args):
+    from pipeline.next_gen_3d_pipeline import NextGen3AShowcaseGenerator
+    out_path = Path(args.out) if getattr(args, "out", "") else None
+    print("[3D-PIPELINE] 🚀 启动次时代 3A PBR/LOD 资产与展台自动化生成流水线...")
+    out = NextGen3AShowcaseGenerator.generate_showcase_html(out_path)
+    print(f"[3D-PIPELINE] ✅ 次时代 3A 视口展台生成完毕: {out} ({out.stat().st_size} bytes)")
 
 def main():
     parser = argparse.ArgumentParser(description="Game Dev Agent Studios 统一管理 CLI (v9.0 First-Principles & Adversarial Red-Team Edition)")
@@ -574,9 +579,11 @@ def main():
 
     sub = parser.add_subparsers(dest="command", help="子命令")
 
-    sub.add_parser("agents", help="列出 75 位专家智能体")
-    sub.add_parser("skills", help="列出 108 个游戏开发技能")
+    sub.add_parser("agents", help="列出 82 位专家智能体")
+    sub.add_parser("skills", help="列出 114 个游戏开发技能")
     sub.add_parser("hooks", help="查看 12 个生命周期钩子")
+    p_3d = sub.add_parser("3d-pipeline", help="运行次时代 3A PBR/LOD 资产与展台自动化生成流水线")
+    p_3d.add_argument("--out", type=str, default="", help="指定自定义 HTML 输出路径")
     
     p_route = sub.add_parser("route", help="执行 GameFactory-3A 前置路由锁定")
     p_route.add_argument("--preset", type=str, default="rust_macroquad_2d", help="预设名称")
@@ -771,6 +778,7 @@ def main():
     elif args.command == "ecs": cmd_ecs(args)
     elif args.command == "techtree": cmd_techtree(args)
     elif args.command == "mindustry": cmd_mindustry(args)
+    elif args.command == "3d-pipeline": cmd_3d_pipeline(args)
     else: parser.print_help()
 
 if __name__ == "__main__":

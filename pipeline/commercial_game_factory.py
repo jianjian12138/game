@@ -641,7 +641,7 @@ class CyberSurvivorGameGenerator:
             <div class="gear-name">未解锁槽位</div>
           </div>
         </div>
-        <button class="btn-game btn-game-blue" style="width: 100%; height: 44px;" onclick="alert('🎉 装备一键强化完成，战力 +1,200！')">
+        <button class="btn-game btn-game-blue" style="width: 100%; height: 44px;" onclick="console.log('🎉 装备一键强化完成，战力 +1,200！')">
           ⚡ 一键强化穿戴装备
         </button>
       </div>
@@ -1894,7 +1894,7 @@ class CyberSurvivorGameGenerator:
 
   document.getElementById('btnSettings').onclick = () => {{
     AudioEngine.playClick();
-    alert('⚙️ 设置面板：BGM 音量 100%，触觉反馈已开启，60fps 画质就绪');
+    console.log('⚙️ 设置面板：BGM 音量 100%，触觉反馈已开启，60fps 画质就绪');
   }};
 
   // 广告契约交互
@@ -2009,7 +2009,7 @@ class CyberSurvivorGameGenerator:
     AudioEngine.playClick();
     currentSave.gold += 100;
     VersionedPersistenceStore.save(currentSave);
-    alert('🎉 签到津贴到账！获得 100 金币！');
+    console.log('🎉 签到津贴到账！获得 100 金币！');
     document.getElementById('sign-modal').style.display = 'none';
     updateLobbyUI();
   }};
@@ -2035,7 +2035,7 @@ class CyberSurvivorGameGenerator:
       const win = rewards[Math.floor(Math.random() * rewards.length)];
       currentSave.gold += win;
       VersionedPersistenceStore.save(currentSave);
-      alert(`🎉 恭喜获得转盘大奖: +${{win}} 金币！`);
+      console.log(`🎉 恭喜获得转盘大奖: +${{win}} 金币！`);
       btn.innerText = '🎬 观看广告·启动转盘';
       document.getElementById('wheel-modal').style.display = 'none';
       updateLobbyUI();

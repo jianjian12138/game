@@ -4,12 +4,12 @@
 > 🚀 **通用型全品类游戏智能研发中枢 (生产级正式版 v4.3.0)**：
 > 本系统为**开放通用型 AI 游戏研发智能体中枢**，不绑定任何特定客户端。**既可完全独立作为命令行开发工具或 Web 工作室运行，也可被 Claude Code (cc)、OpenAI Codex、Hermes-Agent、Cursor/Windsurf 等各类通用 Agent 通过工业标准协议 (MCP / Function Calling / REST / Python SDK) 无缝调用**。
 >
-> 平台深度融合 **75 位专家级游戏智能体矩阵**、**108 项专业研发技能库**、**35 项预制 Ford-T 工业零件**、**双向 DSL 游戏逻辑热更运行时**、**行为树 AI 决策中枢**、**高精度定频帧同步网络引擎**、**Combat Juice 战斗打击感总线（创伤震屏/顿帧/体积守恒挤压）**、**3D Khronos glTF 2.0 骨骼蒙皮动画系统**、**蒙特卡洛经济平衡仿真器**、**GDC 赛斯·哈德森叙事教育学审计闭环**，并严密集成 **红队一票否决门禁 (Veto Gate)** 与 **微信小游戏 4MB 极速交付打包器**。
+> 平台深度融合 **82 位专家级游戏智能体矩阵**、**114 项专业研发技能库**、**35 项预制 Ford-T 工业零件**、**双向 DSL 游戏逻辑热更运行时**、**行为树 AI 决策中枢**、**高精度定频帧同步网络引擎**、**Combat Juice 战斗打击感总线（创伤震屏/顿帧/体积守恒挤压）**、**3D Khronos glTF 2.0 骨骼蒙皮动画系统**、**次时代 PBR 五通道物理贴图程序化烘焙与三级 LOD 动态减面流水线**、**蒙特卡洛经济平衡仿真器**、**GDC 赛斯·哈德森叙事教育学审计闭环**，并严密集成 **红队一票否决门禁 (Veto Gate)** 与 **微信小游戏 4MB 极速交付打包器**。
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Universal Agent](https://img.shields.io/badge/Agent-Claude_Code_|_Codex_|_Hermes_|_MCP_|_REST-blueviolet.svg)]()
 [![Platform](https://img.shields.io/badge/Platform-Standalone_CLI_|_Web_Canvas_|_WeChat_Minigame-blue.svg)]()
-[![Agents & Skills](https://img.shields.io/badge/Experts-75_Agents_|_108_Skills-blue.svg)](./agents/studio_roster.py)
+[![Agents & Skills](https://img.shields.io/badge/Experts-82_Agents_|_114_Skills-blue.svg)](./agents/studio_roster.py)
 [![Ford-T Parts](https://img.shields.io/badge/Ford--T_Parts-35_Industrial_Parts-purple.svg)](./core/ford_t_game_parts_hub.py)
 [![Release Gate](https://img.shields.io/badge/Release_Gate-APPROVED_(100/100)-brightgreen.svg)](./pipeline/test_all_standards.py)
 [![Zero-Deps](https://img.shields.io/badge/Zero--Deps-Python_Standard_Library-orange.svg)]()
@@ -18,13 +18,14 @@
 
 ## 📦 平台商业级成品交付矩阵 (Production Deliverables)
 
-平台自带三款完全开箱即用、无跨域限制（直接以 `file://` 双击即可运行）、零残存占位符的工业级标杆交付物：
+平台自带四款完全开箱即用、无跨域限制（直接以 `file://` 双击即可运行）、零残存占位符的工业级标杆交付物：
 
 | 交付项目 | 运行物路径 | 核心技术标准与工业指标 |
 | :--- | :--- | :--- |
 | **🏆 赛博幸存者 (商业旗舰正式版)** | [`output/cyber_survivor/index.html`](./output/cyber_survivor/index.html)<br>微信包: `output/cyber_survivor/wechat_package/` | **全闭环商业系统**: 局外军火库/永久养成/抽卡/签到、局内三选一技能肉鸽升级、Boss 三阶段 AI。<br>**性能手感**: 零 `Math.hypot`（平方和距离碰撞）、创伤震屏、伤害浮字、单包 140KB（微信首包仅 0.05MB 远低于 4MB 限制）。 |
 | **⚙️ 泰坦机甲 (C++ 工业引擎场景架构)** | [`output/industrial_engine_showcase/index.html`](./output/industrial_engine_showcase/index.html) | **工业渲染标准**: DAG 场景图三级级联变换、零-GC `sortKey` 渲染队列、400 条指令折叠为 2 次合批 DrawCall（合批率 99.5%）、预烘焙 80×80 网格贴图、体积守恒挤压拉伸 (`sx*sy=1.0`)。 |
 | **🧍 3D 骨骼动画演示系统** | [`output/skeletal_showcase/index.html`](./output/skeletal_showcase/index.html)<br>模型: `output/assets/3d/HeroRigged.gltf` | **Khronos glTF 2.0 标准**: 15 关节全功能人形骨架、网格骨骼权重绑定、Idle/Walk/Attack 三段动画 0.25s 交叉平滑过渡 (CrossFade)、THREE.SkeletonHelper 骨骼调试透视、数据完全内嵌无本地 CORS 报错。 |
+| **🦾 3A 次时代 PBR/LOD 展台** | [`output/next_gen_3a_showcase/index.html`](./output/next_gen_3a_showcase/index.html) | **次时代工业美术管线**: 纯 Python 零依赖烘焙 5 通道 PBR 物理贴图 (Albedo/Normal/Roughness/AO/Emissive)、LOD0/1/2 阶梯几何减面与自适应距离调度、HRTF 3D 空间音频定位、红队一票否决审计 100 分。 |
 
 ---
 

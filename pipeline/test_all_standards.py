@@ -257,6 +257,59 @@ class Test11_AdversarialRedTeamNonSemiFinishedVeto(unittest.TestCase):
         self.assertEqual(res_bad["verdict"], "REJECTED_UNFIT_FOR_RELEASE")
 
 
+class Test12_NextGen3AShowcaseDeliveryAudit(unittest.TestCase):
+    """验证次时代 3A 引擎展台 (Next-Gen 3A Showcase) 独立运行制品与工业交付标准"""
+
+    def test_next_gen_3a_showcase_deliverable(self):
+        from pipeline.next_gen_3d_pipeline import NextGen3AShowcaseGenerator
+        from pipeline.verb_assembler import VerbAssembler
+
+        path = ROOT / "output" / "next_gen_3a_showcase" / "index.html"
+        # 自愈机制：若硬盘产物缺失则自愈重建，防止脆弱的本地文件依赖
+        if not path.exists():
+            NextGen3AShowcaseGenerator.generate_showcase_html(path)
+        self.assertTrue(path.exists(), "Next-Gen 3A Showcase index.html 不存在且无法自愈构建")
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # 1. 基础规范与自包含性 (无外部网络依赖，内置资源)
+        self.assertIn("<!DOCTYPE html>", content)
+        self.assertGreater(len(content), 100000, "文件体积应包含嵌入式 PBR 物理材质与 LOD 拓扑")
+
+        # 2. PBR 物理材质 5 通道嵌入验证
+        self.assertIn("PBR_ASSETS", content)
+        self.assertIn("albedo", content)
+        self.assertIn("normal", content)
+        self.assertIn("metallicRoughness", content)
+        self.assertIn("ao", content)
+        self.assertIn("emissive", content)
+
+        # 3. 三级 LOD (0/1/2) 拓扑与减面平滑过渡
+        self.assertIn("LOD_MESH_DATA", content)
+        self.assertIn("LOD0", content)
+        self.assertIn("LOD1", content)
+        self.assertIn("LOD2", content)
+        self.assertIn("updateActiveLOD", content)
+
+        # 4. 3D 空间音频合成引擎 (Web Audio API + HRTF PannerNode)
+        self.assertIn("SpatialAudioSystem", content)
+        self.assertIn("createPanner", content)
+        self.assertIn("HRTF", content)
+        self.assertIn("updateListener", content)
+
+        # 5. 红军毒舌对抗审讯满分验证 (100分，0否决)
+        res = RedTeamInquisitor.indict_game_code(content, "NextGen3AShowcase")
+        self.assertEqual(res["verdict"], "PASSED_WITH_RED_TEAM_APPROVAL")
+        self.assertEqual(res["final_score"], 100)
+        self.assertEqual(len(res["veto_hits"]), 0)
+
+        # 6. 验证 VerbAssembler 动词装配中枢能够自适应生成次时代视口
+        va_content = VerbAssembler.assemble_game("机甲先锋", "3D次时代", "PBR材质")
+        self.assertIn("PBR_ASSETS", va_content)
+        self.assertIn("LOD_MESH_DATA", va_content)
+
+
+
 if __name__ == "__main__":
     print("=" * 75)
     print("🚀 启动 Game-Agent 全系统工业标准全量自动化回归门禁总测")

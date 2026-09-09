@@ -7,7 +7,7 @@ registry.py: 游戏开发多智能体工作室大典 (Game Studio Registry)
 """
 from typing import Dict, List, Any
 
-# ==================== 1. 75 位专家子代理 (6 大部门) ====================
+# ==================== 1. 82 位专家子代理 (6 大部门) ====================
 STUDIO_DEPARTMENTS = {
     "production": {
         "name": "制作与管理部",
@@ -68,7 +68,9 @@ STUDIO_DEPARTMENTS = {
             {"id": "cpp_engine_architect", "name": "C++工业级游戏引擎首席架构师", "role": "把控场景图、渲染指令队列、材质着色器管线与合批优化"},
             {"id": "v8_performance_systems_engineer", "name": "极客时间系统工程与V8性能总监", "role": "把控零GC内存排布、结构体扁平化、Hidden Class 稳定化与火焰图调优"},
             {"id": "scene_graph_hierarchy_specialist", "name": "场景图层级与变换矩阵专家", "role": "把控父子嵌套变换、局部/全局矩阵懒求值、脏标记链式扩散"},
-            {"id": "render_queue_batching_engineer", "name": "渲染队列与动态合批专家", "role": "把控渲染指令封装、材质状态排序、DrawCall 90%折叠合批"}
+            {"id": "render_queue_batching_engineer", "name": "渲染队列与动态合批专家", "role": "把控渲染指令封装、材质状态排序、DrawCall 90%折叠合批"},
+            {"id": "pbr_material_pipeline_engineer", "name": "次时代 PBR 着色器与光照管线专家", "role": "主导 HDR 环境光照、切线空间法线着色器与微表面双向反射分布函数 (BRDF)"},
+            {"id": "lod_streaming_architect", "name": "超大规模场景 LOD 与流式加载架构师", "role": "主导视锥体剔除与屏幕占比距离驱动的 LOD0/LOD1/LOD2 动态切换状态机"}
         ]
     },
     "art": {
@@ -85,7 +87,12 @@ STUDIO_DEPARTMENTS = {
             {"id": "lighting_artist", "name": "光影氛围师", "role": "昼夜交替与后处理 Bloom 发光特效"},
             {"id": "visual_diff_auditor", "name": "视觉真理差分审计师", "role": "将实机捕获与原版黄金帧进行像素级色相与边缘差分比对"},
             {"id": "skeletal_anim_director", "name": "骨骼蒙皮动画总监", "role": "把控 3D 骨骼关节树、顶点权重与关键帧动作表现"},
-            {"id": "autotile_bitmask_master", "name": "47瓦片地形转角总工", "role": "8 邻域 Blob 47 掩码自动烘焙与城墙地表无缝拼缝"}
+            {"id": "autotile_bitmask_master", "name": "47瓦片地形转角总工", "role": "8 邻域 Blob 47 掩码自动烘焙与城墙地表无缝拼缝"},
+            {"id": "next_gen_sculpting_director", "name": "3A 次时代高模雕刻总监", "role": "主导次时代高精几何雕刻生成、微观拓扑形态与曲面置换"},
+            {"id": "retopology_uv_master", "name": "次时代四边面重拓扑与 UV 优化师", "role": "将高模无损重拓扑为规范四边面，展开接缝最少、无拉伸的 UV 坐标"},
+            {"id": "pbr_texture_baker", "name": "次时代 PBR 材质烘焙专家", "role": "基于高低模法线摄动算法自动烘焙 Albedo/Normal/Roughness/Metallic/AO 五大物理贴图"},
+            {"id": "auto_rigging_skinning_ta", "name": "骨骼自动绑定与蒙皮技师", "role": "标准人体/机械关节树自动配准与热传导蒙皮权重计算"},
+            {"id": "lod_mesh_budget_auditor", "name": "LOD 分级与渲染预算审计官", "role": "生成 LOD0/LOD1/LOD2 距离阶梯，构建凸包碰撞体，把控显存与 DrawCall"}
         ]
     },
     "audio": {
@@ -256,7 +263,13 @@ GAME_SKILLS = [
     {"id": "render_queue_material_batching", "category": "Rendering", "name": "渲染指令队列、多通道排序与动态材质合批"},
     {"id": "v8_hidden_class_zero_gc_tuning", "category": "Logic", "name": "V8隐藏类稳定化与 TypedArray 零GC热循环"},
     {"id": "frustum_culling_quadtree_spatial", "category": "Rendering", "name": "摄像机视锥裁剪与空间索引加速"},
-    {"id": "engine_subsystem_profiling_hud", "category": "QA", "name": "实时DrawCall/帧耗时/合批率/GC开销全景剖析HUD"}
+    {"id": "engine_subsystem_profiling_hud", "category": "QA", "name": "实时DrawCall/帧耗时/合批率/GC开销全景剖析HUD"},
+    {"id": "next_gen_high_poly_sculpting", "category": "Rendering", "name": "次时代高保真多边形雕刻与拓扑"},
+    {"id": "quad_retopology_uv_unwrap", "category": "Rendering", "name": "四边面重拓扑与接缝无损 UV 展开"},
+    {"id": "pbr_five_channel_baking", "category": "Rendering", "name": "PBR 物理着色五通道贴图烘焙"},
+    {"id": "auto_rigging_heat_skinning", "category": "Rendering", "name": "骨骼自动装配与热传导蒙皮权重计算"},
+    {"id": "multi_tier_lod_generator", "category": "Rendering", "name": "LOD0/1/2 多级细节减面与距离平滑过渡"},
+    {"id": "tangent_normal_brdf_shader", "category": "Rendering", "name": "切线空间法线与微表面双向反射分布函数"}
 ]
 
 def get_all_agents() -> List[Dict[str, Any]]:
