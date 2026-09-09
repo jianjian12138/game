@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 game_agent.py: 游戏开发多智能体工作室全能统一管理 CLI (Game Agent CLI v2.2 Novel-to-Game Edition)
-融合 82 位专家智能体、114 个专项技能、12 个生命周期 Hooks、GameFactory-3A 路由契约、Novel-to-Game 设定提取与五步可玩门禁、Book-to-Skill 著作蒸馏与 CCGS 编排中枢。
+融合 82 位专家智能体、3D 次时代美术与资产工程跨部门团队、114 个专项技能、12 个生命周期 Hooks、GameFactory-3A 路由契约、Novel-to-Game 设定提取与五步可玩门禁、Book-to-Skill 著作蒸馏与 CCGS 编排中枢。
 
 纯 Python 3.10+ 标准库实现，零外部依赖。
 """
@@ -22,7 +22,7 @@ if sys.platform == "win32":
 ROOT = Path(__file__).resolve().parent
 
 def cmd_agents(args):
-    from core.registry import STUDIO_DEPARTMENTS, get_all_agents
+    from core.registry import STUDIO_DEPARTMENTS, get_all_agents, get_all_teams
     all_agents = get_all_agents()
     print(f"[AGENTS] 游戏开发多智能体工作室 {len(all_agents)} 位专家花名册:\n")
     for dept_id, dept in STUDIO_DEPARTMENTS.items():
@@ -30,6 +30,27 @@ def cmd_agents(args):
         for a in dept["agents"]:
             print(f"  * {a['name']:<12} ({a['id']:<26}) -> {a['role']}")
         print()
+    teams = get_all_teams()
+    print(f"【跨部门专业团队】({len(teams)})")
+    for team in teams:
+        print(f"  * {team['name']} ({team['id']})")
+        print(f"    负责人: {team['lead_agent']} | 成员: {len(team['members'])} | 门禁: {', '.join(team['required_gates'])}")
+        print(f"    使命: {team['mission']}")
+    print()
+
+def cmd_teams(args):
+    from core.registry import get_all_teams
+    teams = get_all_teams()
+    print(f"[TEAMS] 跨部门专业团队清单 (共 {len(teams)} 个):\n")
+    for team in teams:
+        print(f"【{team['name']}】({team['id']})")
+        print(f"  使命: {team['mission']}")
+        print(f"  负责人: {team['lead_agent']}")
+        print(f"  成员数: {len(team['members'])}")
+        print(f"  能力: {', '.join(cap['id'] for cap in team['capabilities'])}")
+        print(f"  门禁: {', '.join(team['required_gates'])}")
+        print(f"  成熟度: {team['maturity']['current']} -> {team['maturity']['next_target']} -> {team['maturity']['production_target']}\n")
+
 
 def cmd_skills(args):
     from core.registry import GAME_SKILLS
@@ -225,11 +246,12 @@ def cmd_create(args):
 
     print(f"[CREATE] 🚀 启动游戏生产流水线: 《{title}》({genre}) [引擎: {engine_choice}, 模式: {mode}, Provider: {provider}]")
 
-    from core.studio_engine import studio_engine
-    res = studio_engine.create_game_pipeline(
+    from core.run_service import run_service
+    res = run_service.create_game(
         title=title,
         genre=genre,
         custom_rules=custom_rules,
+        source="cli",
         mode=mode,
         llm_provider=provider,
         llm_model=model,
@@ -242,7 +264,35 @@ def cmd_create(args):
     print(f"📜 工业 GDD 规范: {res.get('gdd_file')}")
     print(f"🎯 Godot 导出目录: {res.get('godot_dir')}")
     print(f"👁️ QA 终审判定: {res.get('qa_verdict')}")
+    if res.get("run_id"):
+        print(f"🆔 契约 Run ID: {res.get('run_id')}")
+        print(f"🛡️ 门禁结果: G0-G5 评定完成 (发布资格: {'✅ 就绪' if res.get('release_eligible') else '⚪ 运行中/待人工审阅'})")
     print(f"======================================================\n")
+
+def cmd_doctor(args):
+    from core.environment_inspector import EnvironmentInspector
+    print("=== Game Dev Agent Studio — 宿主机运行环境与工具链健康体检 (Doctor) ===")
+    manifest = EnvironmentInspector.get_toolchain_manifest()
+    tools = manifest.get("tools", {})
+    print(f"  OS 平台: {manifest.get('os')} ({sys.platform})")
+    for key, info in tools.items():
+        name = info.get("name", key)
+        installed = info.get("installed", False)
+        exe = info.get("executable") or "未安装"
+        ver = f"[{info.get('version')}]" if info.get("version") else ""
+        mark = "✅" if installed else ("❌" if info.get("required") else "⚪")
+        print(f"  {mark} {name:<35} {ver:<15} -> {exe}")
+    print("==========================================================================")
+    target = getattr(args, "target", "web")
+    pf = EnvironmentInspector.preflight_check(target)
+    print(f"[PREFLIGHT:{target}] 预检结论: {'✅ 生产就绪' if pf['passed'] else '❌ 存在阻塞项'}")
+    if pf.get("issues"):
+        for iss in pf["issues"]:
+            print(f"  ❌ [{iss['level']}] {iss['tool']}: {iss['msg']}")
+            if iss.get("solution"):
+                print(f"     💡 解决指南: {iss['solution']}")
+    else:
+        print(f"  ✅ 目标技术栈 '{target}' 的所有关键工具链均已就绪，无阻塞风险。")
 
 def cmd_gdd(args):
     from pipeline.gdd_generator import GDDGenerator
@@ -595,8 +645,9 @@ def main():
 
     sub = parser.add_subparsers(dest="command", help="子命令")
 
-    sub.add_parser("agents", help="列出 82 位专家智能体")
-    sub.add_parser("skills", help="列出 114 个游戏开发技能")
+    sub.add_parser("agents", help="列出注册专家智能体与跨部门专业团队")
+    sub.add_parser("teams", help="列出跨部门专业团队、能力与门禁")
+    sub.add_parser("skills", help="列出注册游戏开发技能")
     sub.add_parser("hooks", help="查看 12 个生命周期钩子")
     p_3d = sub.add_parser("3d-pipeline", help="运行次时代 3A PBR/LOD 资产与展台自动化生成流水线")
     p_3d.add_argument("--out", type=str, default="", help="指定自定义 HTML 输出路径")
@@ -748,8 +799,13 @@ def main():
     sub.add_parser("techtree", help="验证工业科技树 DAG 拓扑无死锁与全链路供需平衡")
     sub.add_parser("mindustry", help="验证并运行《星际流水线：微型工业》沙盒塔防标杆游戏")
 
+    # v10.0 环境治理与工具链健康审查 (Doctor)
+    p_doc = sub.add_parser("doctor", help="全面体检宿主机环境与运行时工具链就绪度 (Doctor)")
+    p_doc.add_argument("--target", type=str, default="web", choices=["web", "godot", "wasm_rust", "llm"], help="目标技术栈预检")
+
     args = parser.parse_args()
     if args.command == "agents": cmd_agents(args)
+    elif args.command == "teams": cmd_teams(args)
     elif args.command == "skills": cmd_skills(args)
     elif args.command == "hooks": cmd_hooks(args)
     elif args.command == "route": cmd_route(args)
@@ -798,6 +854,7 @@ def main():
     elif args.command == "techtree": cmd_techtree(args)
     elif args.command == "mindustry": cmd_mindustry(args)
     elif args.command == "3d-pipeline": cmd_3d_pipeline(args)
+    elif args.command == "doctor": cmd_doctor(args)
     else: parser.print_help()
 
 if __name__ == "__main__":

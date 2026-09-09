@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 game_mcp_server.py: 游戏开发多智能体工作室 MCP 服务端 (Game Studio Model Context Protocol)
-基于标准 JSON-RPC 2.0 协议，暴露工作室 75 位专家、108 个技能与游戏自动化生成流水线，
+基于标准 JSON-RPC 2.0 协议，暴露工作室专家、技能、跨部门专业团队与游戏自动化生成流水线，
 允许任何外部 IDE、Cursor、Antigravity 或外部 Agent 远程驱动游戏工作室。
 
 纯 Python 3.9+ 标准库实现，零外部依赖。
@@ -22,7 +22,7 @@ if sys.platform == "win32":
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-from core.registry import get_all_agents, GAME_SKILLS, LIFECYCLE_HOOKS, get_stats
+from core.registry import get_all_agents, get_all_teams, get_team_execution_plan, GAME_SKILLS, LIFECYCLE_HOOKS, get_stats
 from core.studio_engine import studio_engine
 from pipeline.gdd_generator import GDDGenerator
 from pipeline.visual_qa_loop import VisualQALoop
@@ -32,6 +32,25 @@ from core.prompt_template_engine import CodeGenPrompt, ReviewPrompt
 from core.security_guard import safe_resolve_path, SecurityGuardError
 
 MCP_TOOLS = [
+    {
+        "name": "submit_game_intent",
+        "description": "提交版本化 GameIntent，生成 GameSpec/WorkflowPlan 和 run_id，不直接发布",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string"},
+                "genre": {"type": "string"},
+                "custom_rules": {"type": "string"},
+                "profile": {"type": "string"}
+            },
+            "required": ["title"]
+        }
+    },
+    {
+        "name": "get_run_status",
+        "description": "查询版本化运行状态和工件完整性",
+        "inputSchema": {"type": "object", "properties": {"run_id": {"type": "string"}}, "required": ["run_id"]}
+    },
     {
         "name": "create_game",
         "description": "调用 49 位游戏专家智能体与 12 个生命周期 Hooks，一键端到端生成完整可玩游戏工程 (支持 fast/llm/hybrid 模式)",
@@ -50,12 +69,30 @@ MCP_TOOLS = [
     },
     {
         "name": "list_agents",
-        "description": "列出工作室全部 6 大部门 49 个细分专家智能体信息",
+        "description": "列出工作室全部 6 大部门的细分专家智能体信息",
         "inputSchema": {"type": "object", "properties": {}}
     },
     {
+        "name": "list_teams",
+        "description": "列出跨部门专业团队及其成员、可执行能力、工件和门禁要求",
+        "inputSchema": {"type": "object", "properties": {}}
+    },
+    {
+        "name": "get_team_execution_plan",
+        "description": "为指定跨部门团队生成绑定 run_id、目标平台、能力、工件和门禁的执行计划",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "team_id": {"type": "string", "description": "团队 ID，如 next_gen_3d_art_team"},
+                "run_id": {"type": "string", "description": "关联的运行 ID"},
+                "target": {"type": "string", "description": "目标平台或渲染目标，如 webgl、godot、unreal"}
+            },
+            "required": ["team_id", "run_id"]
+        }
+    },
+    {
         "name": "list_skills",
-        "description": "列出工作室 73 个专项游戏开发技能包大典",
+        "description": "列出工作室全部专项游戏开发技能包大典",
         "inputSchema": {"type": "object", "properties": {}}
     },
     {
@@ -257,6 +294,16 @@ MCP_TOOLS = [
         }
     },
     {
+        "name": "inspect_environment",
+        "description": "调用 EnvironmentInspector 深度探测宿主机操作系统、Python、Git、Edge/Chrome、Node、Godot 等工具链清单与预检状态",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target": {"type": "string", "enum": ["web", "godot", "wasm_rust", "llm"], "description": "目标平台预检"}
+            }
+        }
+    },
+    {
         "name": "create_hypercasual_commercial_game",
         "description": "调用 HyperCasualMonetizer 构建核心循环 ≤30秒、包体 ≤4MB、预埋激励视频广告的超轻商业爆款小游戏",
         "inputSchema": {
@@ -371,11 +418,34 @@ def handle_rpc_request(req: dict) -> dict:
         tool_name = params.get("name")
         args = params.get("arguments", {})
 
-        if tool_name == "create_game":
-            res = studio_engine.create_game_pipeline(
+        if tool_name == "submit_game_intent":
+            from core.run_service import run_service
+            intent = run_service.create_intent(
+                title=args.get("title", "未命名游戏"),
+                genre=args.get("genre", "2D 独立游戏"),
+                custom_rules=args.get("custom_rules", ""),
+                profile=args.get("profile", "web_survivor_vertical_v1"),
+                source="mcp_v1",
+            )
+            prepared = run_service.prepare(intent)
+            result = {"status": "accepted", "run_id": intent.run_id, "intent_id": intent.intent_id, "spec_id": prepared["spec"].spec_id, "plan_id": prepared["plan"].plan_id}
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False)}]}}
+
+        elif tool_name == "get_run_status":
+            from core.run_service import run_service
+            try:
+                result = run_service.get_run_status(args.get("run_id", ""))
+            except FileNotFoundError:
+                return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": "Run not found"}}
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": json.dumps(result, ensure_ascii=False)}]}}
+
+        elif tool_name == "create_game":
+            from core.run_service import run_service
+            res = run_service.create_game(
                 title=args.get("title", "未命名游戏"),
                 genre=args.get("genre", "2D 街机游戏"),
                 custom_rules=args.get("custom_rules", ""),
+                source="mcp_legacy",
                 mode=args.get("mode", "fast"),
                 llm_provider=args.get("llm_provider", "gemini"),
                 llm_model=args.get("llm_model"),
@@ -388,6 +458,20 @@ def handle_rpc_request(req: dict) -> dict:
 
         elif tool_name == "list_skills":
             return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": json.dumps(GAME_SKILLS, ensure_ascii=False)}]}}
+
+        elif tool_name == "list_teams":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": json.dumps(get_all_teams(), ensure_ascii=False)}]}}
+
+        elif tool_name == "get_team_execution_plan":
+            try:
+                plan = get_team_execution_plan(
+                    team_id=args.get("team_id", ""),
+                    run_id=args.get("run_id", ""),
+                    target=args.get("target", "webgl"),
+                )
+            except KeyError as exc:
+                return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": str(exc)}}
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": json.dumps(plan, ensure_ascii=False, indent=2)}]}}
 
         elif tool_name == "generate_gdd":
             gdd = GDDGenerator.generate_gdd(
@@ -537,6 +621,14 @@ def handle_rpc_request(req: dict) -> dict:
         elif tool_name == "inspect_headless_toolchain":
             from pipeline.headless_toolchain_orchestrator import HeadlessToolchainOrchestrator
             res = HeadlessToolchainOrchestrator.inspect_environment()
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": json.dumps(res, ensure_ascii=False, indent=2)}]}}
+
+        elif tool_name == "inspect_environment":
+            from core.environment_inspector import EnvironmentInspector
+            manifest = EnvironmentInspector.get_toolchain_manifest()
+            target = args.get("target", "web")
+            pre = EnvironmentInspector.preflight_check(target)
+            res = {"manifest": manifest, "preflight": pre}
             return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": json.dumps(res, ensure_ascii=False, indent=2)}]}}
 
         elif tool_name == "create_hypercasual_commercial_game":

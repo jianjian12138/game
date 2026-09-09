@@ -129,7 +129,80 @@ STUDIO_DEPARTMENTS = {
     }
 }
 
-# ==================== 2. 12 个生命周期 Hooks ====================
+# ==================== 2. 跨部门专业团队 ====================
+# 团队不是新增部门，而是把已有专家、技能、执行器与验收工件绑定为可调度交付单元。
+# 其中 next_gen_3d_art_team 是 3D 次时代美术团队的唯一事实来源。
+STUDIO_TEAMS = {
+    "next_gen_3d_art_team": {
+        "id": "next_gen_3d_art_team",
+        "name": "3D 次时代美术与资产工程团队",
+        "team_type": "cross_department",
+        "mission": "负责从高模/拓扑/UV 到 PBR、骨骼、LOD、渲染预算与资产 QA 的可交付 3D 资产闭环",
+        "departments": ["art", "engineering", "audio", "qa"],
+        "lead_agent": "next_gen_sculpting_director",
+        "members": [
+            "art_director",
+            "3d_modeler",
+            "technical_artist",
+            "skeletal_anim_director",
+            "next_gen_sculpting_director",
+            "retopology_uv_master",
+            "pbr_texture_baker",
+            "auto_rigging_skinning_ta",
+            "lod_mesh_budget_auditor",
+            "pbr_material_pipeline_engineer",
+            "lod_streaming_architect",
+            "graphics_shader_specialist",
+            "visual_diff_auditor",
+            "hardware_profiler_expert",
+        ],
+        "capabilities": [
+            {
+                "id": "next_gen_asset_generation",
+                "skills": ["next_gen_high_poly_sculpting", "quad_retopology_uv_unwrap"],
+                "executors": ["pipeline.asset_3d_bridge:Asset3DBridge"],
+                "artifacts": ["asset_manifest", "gltf_asset", "obj_asset"],
+                "status": "implemented_procedural_baseline",
+            },
+            {
+                "id": "pbr_texture_baking",
+                "skills": ["pbr_five_channel_baking", "tangent_normal_brdf_shader"],
+                "executors": ["pipeline.next_gen_3d_pipeline:PBRTextureBaker"],
+                "artifacts": ["pbr_channel_manifest", "albedo", "normal", "metallic_roughness", "ao", "emissive"],
+                "status": "implemented_procedural_baseline",
+            },
+            {
+                "id": "skeletal_rigging_animation",
+                "skills": ["auto_rigging_heat_skinning", "skeletal_skinning_animation"],
+                "executors": ["pipeline.skeletal_animation_engine:SkeletalAnimationEngine"],
+                "artifacts": ["skeleton_manifest", "skinned_gltf", "animation_clips"],
+                "status": "implemented_procedural_baseline",
+            },
+            {
+                "id": "lod_and_render_budget",
+                "skills": ["multi_tier_lod_generator", "frustum_culling_quadtree_spatial", "render_queue_material_batching"],
+                "executors": ["pipeline.next_gen_3d_pipeline:NextGenMeshBuilder", "pipeline.asset_streaming.lod_generator"],
+                "artifacts": ["lod_budget_report", "draw_call_budget", "material_batch_report"],
+                "status": "implemented_with_policy_gap",
+            },
+            {
+                "id": "asset_quality_gate",
+                "skills": ["hardware_tier_profiling", "pixel_visual_diffing"],
+                "executors": ["pipeline.asset_compiler_qa:AssetCompilerQA"],
+                "artifacts": ["asset_qa_report", "runtime_asset_smoke_report"],
+                "status": "implemented_static_gate",
+            },
+        ],
+        "required_gates": ["asset_schema", "gltf_integrity", "pbr_channels", "skin_weights", "lod_budget", "runtime_asset_smoke"],
+        "maturity": {
+            "current": "M2_procedural_asset_baseline",
+            "next_target": "M3_runtime_verified_3d_assets",
+            "production_target": "M4_engine_and_hardware_verified",
+        },
+    }
+}
+
+# ==================== 3. 12 个生命周期 Hooks ====================
 LIFECYCLE_HOOKS = [
     {"id": "pre_init", "name": "环境与依赖预检", "phase": "Initialization"},
     {"id": "post_init", "name": "工程脚手架就绪", "phase": "Initialization"},
@@ -282,9 +355,41 @@ def get_all_agents() -> List[Dict[str, Any]]:
             agents.append(a_copy)
     return agents
 
+def get_all_teams() -> List[Dict[str, Any]]:
+    """返回跨部门团队清单，供 CLI/HTTP/MCP 与工作流编排统一使用。"""
+    return [dict(team) for team in STUDIO_TEAMS.values()]
+
+
+def get_team(team_id: str) -> Dict[str, Any]:
+    """按 ID 返回团队定义；未知团队返回空字典。"""
+    team = STUDIO_TEAMS.get(team_id)
+    return dict(team) if team else {}
+
+
+def get_team_execution_plan(team_id: str, run_id: str, target: str = "webgl") -> Dict[str, Any]:
+    """将团队元数据展开成一次可审计的执行计划。"""
+    team = get_team(team_id)
+    if not team:
+        raise KeyError(f"Unknown studio team: {team_id}")
+    return {
+        "schema_version": 1,
+        "team_id": team["id"],
+        "team_name": team["name"],
+        "run_id": run_id,
+        "target": target,
+        "lead_agent": team["lead_agent"],
+        "active_agents": team["members"],
+        "capabilities": team["capabilities"],
+        "required_gates": team["required_gates"],
+        "maturity": team["maturity"],
+        "execution_mode": "procedural_baseline_with_runtime_verification",
+    }
+
+
 def get_stats() -> Dict[str, int]:
     return {
         "departments_count": len(STUDIO_DEPARTMENTS),
+        "teams_count": len(STUDIO_TEAMS),
         "agents_count": len(get_all_agents()),
         "skills_count": len(GAME_SKILLS),
         "hooks_count": len(LIFECYCLE_HOOKS)

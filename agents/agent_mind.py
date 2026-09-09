@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-agent_mind.py: 75 位专家智能体深度思维链认知与专业性格驱动核 (Agent Mind Core)
+agent_mind.py: 专家智能体深度思维链认知与专业性格驱动核 (Agent Mind Core)
 为每个智能体注入所属部门的核心价值观、专业批判视角、思维链推理规则与独立评审逻辑。
 """
 from typing import Dict, List, Any, Optional

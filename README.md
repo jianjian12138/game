@@ -4,7 +4,7 @@
 > 🚀 **通用型全品类游戏智能研发中枢 (生产级正式版 v4.3.0)**：
 > 本系统为**开放通用型 AI 游戏研发智能体中枢**，不绑定任何特定客户端。**既可完全独立作为命令行开发工具或 Web 工作室运行，也可被 Claude Code (cc)、OpenAI Codex、Hermes-Agent、Cursor/Windsurf 等各类通用 Agent 通过工业标准协议 (MCP / Function Calling / REST / Python SDK) 无缝调用**。
 >
-> 平台深度融合 **82 位专家级游戏智能体矩阵**、**114 项专业研发技能库**、**35 项预制 Ford-T 工业零件**、**双向 DSL 游戏逻辑热更运行时**、**行为树 AI 决策中枢**、**高精度定频帧同步网络引擎**、**Combat Juice 战斗打击感总线（创伤震屏/顿帧/体积守恒挤压）**、**3D Khronos glTF 2.0 骨骼蒙皮动画系统**、**次时代 PBR 五通道物理贴图程序化烘焙与三级 LOD 动态减面流水线**、**蒙特卡洛经济平衡仿真器**、**GDC 赛斯·哈德森叙事教育学审计闭环**，并严密集成 **红队一票否决门禁 (Veto Gate)** 与 **微信小游戏 4MB 极速交付打包器**。
+> 平台深度融合 **82 位专家级游戏智能体矩阵**、**1 个 3D 次时代美术与资产工程跨部门团队**、**114 项专业研发技能库**、**35 项预制 Ford-T 工业零件**、**双向 DSL 游戏逻辑热更运行时**、**行为树 AI 决策中枢**、**高精度定频帧同步网络引擎**、**Combat Juice 战斗打击感总线（创伤震屏/顿帧/体积守恒挤压）**、**3D Khronos glTF 2.0 骨骼蒙皮动画系统**、**次时代 PBR 五通道物理贴图程序化烘焙与三级 LOD 动态减面流水线**、**蒙特卡洛经济平衡仿真器**、**GDC 赛斯·哈德森叙事教育学审计闭环**，并严密集成 **红队一票否决门禁 (Veto Gate)** 与 **微信小游戏 4MB 极速交付打包器**。
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](./LICENSE)
 [![Universal Agent](https://img.shields.io/badge/Agent-Claude_Code_|_Codex_|_Hermes_|_MCP_|_REST-blueviolet.svg)]()
@@ -166,10 +166,17 @@ python expert_review.py
 
 ```text
 d:/jianjian12138/game/
-├── agents/                     # 75 位专家智能体思维模型与工作流名录
+├── agents/                     # 82 位专家智能体思维模型与工作流名录
 │   ├── agent_mind.py           # 智能体心智中枢与反思循环
-│   └── studio_roster.py        # 75 专家智能体能力矩阵定义
+│   └── studio_roster.py        # 82 位专家智能体能力矩阵定义
+├── docs/next-gen-3d-art-team.md # 3D 次时代美术与资产工程团队契约
+├── docs/next-gen-3d-art-team.md # 3D 次时代美术与资产工程团队契约（工作区文档）
 ├── core/                       # 工业级通用游戏研发引擎底层
+│   ├── contracts.py            # GameIntent/GameSpec/Workflow/Evidence/Gate/Release 契约
+│   ├── artifact_store.py       # SHA-256 内容寻址与不可变工件存储
+│   ├── run_service.py          # CLI/HTTP/MCP 统一运行服务
+│   ├── workflow_orchestrator.py# 版本化工作流计划与能力编排
+│   └── gate_engine.py          # G0-G7 门禁裁决
 │   ├── behavior_tree/          # 行为树 AI 决策中枢
 │   ├── dsl_engine/             # 双向 AST 与 DSL 游戏状态热更解析器
 │   ├── frame_data/             # 格斗与打击动作帧数据判定表

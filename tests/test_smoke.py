@@ -54,7 +54,39 @@ class Test02_ProductionModulesImport(unittest.TestCase):
                 self.assertIsNotNone(m)
 
 
-class Test03_ReleaseGateAndReviewPanel(unittest.TestCase):
+class Test03_TeamRegistryAndRouting(unittest.TestCase):
+    """验证跨部门团队注册、3D路由与执行计划契约。"""
+
+    def test_next_gen_3d_art_team_contract(self):
+        from core.registry import get_stats, get_team, get_team_execution_plan
+        from core.setting_overview import EngineFingerprintDetector
+
+        stats = get_stats()
+        self.assertEqual(stats["agents_count"], 82)
+        self.assertEqual(stats["skills_count"], 114)
+        self.assertGreaterEqual(stats["teams_count"], 1)
+
+        team = get_team("next_gen_3d_art_team")
+        self.assertEqual(team["lead_agent"], "next_gen_sculpting_director")
+        self.assertIn("pbr_five_channel_baking", {
+            skill
+            for capability in team["capabilities"]
+            for skill in capability["skills"]
+        })
+        plan = get_team_execution_plan("next_gen_3d_art_team", "run_test_3d", "webgl")
+        self.assertEqual(plan["run_id"], "run_test_3d")
+        self.assertIn("runtime_asset_smoke", plan["required_gates"])
+
+        route = EngineFingerprintDetector.route_task(ROOT, "3D 次时代 PBR LOD 骨骼材质")
+        routed = [
+            item for item in route["additive_disciplines"]
+            if item.get("team_id") == "next_gen_3d_art_team"
+        ]
+        self.assertEqual(len(routed), 1)
+        self.assertIn("next_gen_sculpting_director", routed[0]["agents"])
+
+
+class Test04_ReleaseGateAndReviewPanel(unittest.TestCase):
     """测试发布门禁与专家评审团在无外部依赖环境下的自动化运行"""
 
     def test_release_gate(self):

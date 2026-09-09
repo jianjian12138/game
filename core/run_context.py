@@ -13,12 +13,14 @@ import shutil
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
+from core.artifact_store import ArtifactStore, ArtifactIntegrityError
+
 ROOT = Path(__file__).resolve().parent.parent
 
 class RunContext:
     """任务独立沙箱工作区与运行清单管理器"""
 
-    def __init__(self, title: str = "game", base_dir: Optional[Path] = None):
+    def __init__(self, title: str = "game", base_dir: Optional[Path] = None, run_id: Optional[str] = None):
         self.title = title
         self.start_time = time.time()
         self.created_at = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -26,13 +28,14 @@ class RunContext:
         # 生成唯一 run_id: run_YYYYMMDD_HHMMSS_<8位hash>
         entropy = f"{self.start_time}_{title}_{os.getpid()}"
         hash_suffix = hashlib.md5(entropy.encode("utf-8")).hexdigest()[:8]
-        self.run_id = f"run_{time.strftime('%Y%m%d_%H%M%S')}_{hash_suffix}"
+        self.run_id = run_id or f"run_{time.strftime('%Y%m%d_%H%M%S')}_{hash_suffix}"
 
         # 确定根工作区: output/runs/<run_id>
         output_root = Path(base_dir) if base_dir else ROOT / "output"
         self.runs_root = output_root / "runs"
         self.work_dir = self.runs_root / self.run_id
         self.work_dir.mkdir(parents=True, exist_ok=True)
+        self.artifact_store = ArtifactStore(self.work_dir)
 
         self.input_params: Dict[str, Any] = {}
         self.stage_timings: List[Dict[str, Any]] = []
@@ -60,17 +63,34 @@ class RunContext:
         })
 
     def register_artifact(self, name: str, file_path: Path) -> str:
-        """注册产物并计算其 SHA-256 哈希"""
+        """注册产物并计算 SHA-256；已密封运行拒绝修改。"""
         p = Path(file_path)
         if not p.exists() or not p.is_file():
             return ""
         content = p.read_bytes()
-        sha256 = hashlib.sha256(content).hexdigest()
+        try:
+            ref = self.artifact_store.put_bytes(
+                artifact_type=name,
+                data=content,
+                artifact_id=f"art_{name}",
+                relative_name=p.name,
+                producer_capability="legacy.studio_engine",
+            )
+        except ArtifactIntegrityError:
+            # 兼容旧流程：同名同内容重复登记可继续；内容变化必须暴露。
+            existing = self.artifacts.get(name, {})
+            current = "sha256:" + hashlib.sha256(content).hexdigest()
+            if existing.get("sha256") == current:
+                return current
+            raise
+        sha256 = ref.sha256
         rel_path = str(p.relative_to(self.work_dir)) if self.work_dir in p.parents else p.name
         self.artifacts[name] = {
+            "artifact_id": ref.artifact_id,
             "path": rel_path,
             "size_bytes": len(content),
-            "sha256": sha256
+            "sha256": sha256,
+            "immutable_path": ref.relative_path,
         }
         return sha256
 
@@ -78,6 +98,7 @@ class RunContext:
         """构建完整的结构化可审计清单"""
         elapsed = time.time() - self.start_time
         manifest = {
+            "schema_version": 1,
             "run_id": self.run_id,
             "title": self.title,
             "status": self.status,
@@ -86,15 +107,19 @@ class RunContext:
             "input_params": self.input_params,
             "stage_timings": self.stage_timings,
             "hooks_dispatched": self.hook_logs,
+            "teams_activated": self.input_params.get("teams", []),
             "artifacts_count": len(self.artifacts),
-            "artifacts": self.artifacts
+            "artifacts": self.artifacts,
+            "artifact_integrity": self.artifact_store.verify_all(),
         }
         manifest_path = self.work_dir / "run_manifest.json"
         manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
         return manifest
 
     def promote_to_release(self, target_release_dir: Path, files_to_promote: Optional[List[str]] = None) -> List[Path]:
-        """门禁全部通过后，将沙箱制品安全同步（Promote）到目标发布目录"""
+        """兼容导出：仅允许显式调用，正式候选应由 ReleaseService 创建清单。"""
+        if self.status == "SEALED":
+            raise ArtifactIntegrityError("Sealed run cannot be promoted through legacy path")
         target = Path(target_release_dir)
         target.mkdir(parents=True, exist_ok=True)
         promoted = []

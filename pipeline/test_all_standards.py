@@ -407,7 +407,8 @@ class Test15_TaskIsolationAndAtomicSaveAudit(unittest.TestCase):
             dummy_file = ctx.work_dir / "index.html"
             dummy_file.write_text("<html><body>SANDBOX_OK</body></html>", encoding="utf-8")
             h = ctx.register_artifact("game_html", dummy_file)
-            self.assertEqual(len(h), 64)  # SHA-256
+            self.assertTrue(h.startswith("sha256:"))
+            self.assertEqual(len(h.removeprefix("sha256:")), 64)  # SHA-256
 
             manifest = ctx.generate_manifest()
             self.assertIn("run_id", manifest)
@@ -482,7 +483,7 @@ class Test17_RealLifecycleHookExecutionAudit(unittest.TestCase):
         test_out = ROOT / "output" / "test_engine_hook_temp"
         try:
             engine = StudioEngine(output_dir=test_out)
-            res = engine.create_game_pipeline(title="幽灵突击队", genre="2D动作射击")
+            res = engine.create_game_pipeline(title="幽灵突击队", genre="2D动作射击", export_release=True)
 
             # 1. 验证返回数据结构完备
             self.assertEqual(res["status"], "success")
@@ -529,6 +530,162 @@ class Test18_WeChatComplianceDefaultsAudit(unittest.TestCase):
         finally:
             if test_wx_dir.exists():
                 shutil.rmtree(test_wx_dir, ignore_errors=True)
+
+
+class Test19_RuntimeAdapterContractAudit(unittest.TestCase):
+    """验证统一运行时适配器契约 (RuntimeAdapter ABC 与规范状态码)"""
+
+    def test_runtime_adapter_contract_and_statuses(self):
+        from core.runtime_adapter import RuntimeAdapter, RuntimeSession, RuntimeStatus
+        # 验证状态常量
+        self.assertEqual(RuntimeStatus.PASS, "PASS")
+        self.assertEqual(RuntimeStatus.FAIL, "FAIL")
+        self.assertEqual(RuntimeStatus.NEEDS_RUNTIME_TOOL, "NEEDS_RUNTIME_TOOL")
+        self.assertEqual(RuntimeStatus.TIMEOUT, "TIMEOUT")
+        self.assertEqual(RuntimeStatus.CRASHED, "CRASHED")
+        self.assertEqual(RuntimeStatus.BLOCKED_BY_STATIC, "BLOCKED_BY_STATIC_VALIDATION")
+
+        # 验证 RuntimeAdapter 为抽象基类且无法直接实例化
+        with self.assertRaises(TypeError):
+            RuntimeAdapter()
+
+
+class Test20_EnvironmentInspectorAndPreflightAudit(unittest.TestCase):
+    """验证宿主机环境探测器与预检门禁 (EnvironmentInspector)"""
+
+    def test_environment_inspector_manifest_and_preflight(self):
+        from core.environment_inspector import EnvironmentInspector
+        manifest = EnvironmentInspector.get_toolchain_manifest()
+        self.assertIn("tools", manifest)
+        self.assertIn("python", manifest["tools"])
+        self.assertIn("chromium", manifest["tools"])
+        self.assertTrue(manifest["tools"]["python"]["installed"])
+
+        # 宿主机上 Edge/Chromium 存在性与 Web 主线就绪
+        chrom_exe = EnvironmentInspector.detect_chromium_executable()
+        self.assertIsNotNone(chrom_exe)
+        self.assertTrue(Path(chrom_exe).exists())
+
+        # 验证 Web 技术栈预检通过
+        pf_web = EnvironmentInspector.preflight_check("web")
+        self.assertTrue(pf_web["passed"])
+        self.assertEqual(len(pf_web["issues"]), 0)
+
+        # 验证 Godot 技术栈预检正确 Fail-Closed 诊断
+        pf_godot = EnvironmentInspector.preflight_check("godot")
+        self.assertFalse(pf_godot["passed"])
+        self.assertTrue(any(iss["tool"] == "godot" for iss in pf_godot["issues"]))
+
+
+class Test21_BrowserRuntimeAdapterExecutionAudit(unittest.TestCase):
+    """验证 BrowserRuntimeAdapter 的生命周期、场景驱动与无假绿机制"""
+
+    def test_browser_runtime_adapter_lifecycle(self):
+        from pipeline.browser_runtime_adapter import BrowserRuntimeAdapter
+        from core.runtime_adapter import RuntimeStatus
+        adapter = BrowserRuntimeAdapter()
+        self.assertEqual(adapter.name, "browser_runtime_adapter")
+        self.assertEqual(adapter.target, "web")
+
+        pre = adapter.preflight("web")
+        self.assertTrue(pre.get("can_launch"))
+
+        # 使用一个有效的 HTML 页面测试 launch / run_scenarios / collect_evidence / close
+        test_html = ROOT / "output" / "cyber_survivor" / "index.html"
+        if not test_html.exists():
+            test_html = ROOT / "output" / "mindustry_mini" / "index.html"
+
+        session = adapter.launch(test_html)
+        self.assertIsNotNone(session)
+        self.assertTrue(session.url.startswith("http://127.0.0.1:"))
+
+        sc_res = adapter.run_scenarios(session)
+        self.assertIn("scenarios", sc_res)
+        self.assertIn("boot", sc_res["scenarios"])
+        self.assertIn("start", sc_res["scenarios"])
+        self.assertIn("core_loop", sc_res["scenarios"])
+
+        ev = adapter.collect_evidence(session)
+        self.assertIn("status", ev)
+        self.assertIn(ev["status"], (RuntimeStatus.PASS, RuntimeStatus.NEEDS_RUNTIME_TOOL, RuntimeStatus.FAIL))
+        self.assertIn("metrics", ev)
+        self.assertIn("runtime_facts", ev)
+
+        adapter.close(session)
+        # 确保 session 彻底关闭
+        self.assertFalse(session.alive)
+
+
+class Test22_WebGLRuntimeProbeAnd3DAssetM3Audit(unittest.TestCase):
+    """验证 WebGL 运行时探针与 3D 资产 M3 推进"""
+
+    def test_webgl_probe_and_m3_promotion(self):
+        from pipeline.webgl_runtime_probe import WebGLRuntimeProbe
+        from pipeline.runtime_asset_smoke import run_runtime_asset_smoke
+
+        # 1. 对 Next-Gen 3D 展台 HTML 进行 WebGL 探针探测
+        showcase_html = ROOT / "output" / "next_gen_3a_pbr" / "index.html"
+        if not showcase_html.exists():
+            from pipeline.next_gen_3d_pipeline import NextGen3AShowcaseGenerator
+            NextGen3AShowcaseGenerator.generate_showcase_html(showcase_html)
+
+        probe_res = WebGLRuntimeProbe.probe_asset(showcase_html)
+        self.assertEqual(probe_res["status"], "SUCCESS")
+        self.assertEqual(probe_res["maturity"], "M3_runtime_verified_3d_assets")
+        self.assertTrue(probe_res["observations"]["is_threejs_runtime"])
+        self.assertTrue(probe_res["observations"]["canvas_bound"])
+
+        # 2. 结合 runtime_asset_smoke 验证带有探针时的 M3 提升
+        from pipeline.asset_3d_bridge import Asset3DBridge
+        test_dir = ROOT / "output" / "test_m3_temp"
+        try:
+            asset_res = Asset3DBridge.build_procedural_asset("crate", output_dir=test_dir)
+            test_gltf = Path(asset_res["gltf_path"])
+            
+            # 不带外部 probe 时：因标准库无法断言 WebGL 返回 NEEDS_RUNTIME_TOOL (红线 13.2)
+            res_without_probe = run_runtime_asset_smoke(test_gltf)
+            self.assertEqual(res_without_probe["runtime"]["status"], "NEEDS_RUNTIME_TOOL")
+
+            # 带 WebGLRuntimeProbe 外部适配器时：推进至 M3
+            probe_fn = WebGLRuntimeProbe.create_probe_callable()
+            res_with_probe = run_runtime_asset_smoke(test_gltf, runtime_probe=probe_fn)
+            self.assertEqual(res_with_probe["status"], "SUCCESS")
+            self.assertEqual(res_with_probe["maturity"]["runtime"], "M3_runtime_verified_3d_assets")
+        finally:
+            if test_dir.exists():
+                shutil.rmtree(test_dir, ignore_errors=True)
+
+
+class Test23_RunServiceUnifiedGateAndArtifactAudit(unittest.TestCase):
+    """验证 RunService 端到端真实运行契约、G0-G5 门禁及候选制品完整性"""
+
+    def test_run_service_execute_run_and_artifact_integrity(self):
+        from core.run_service import RunService
+        from core.artifact_store import ArtifactStore
+
+        svc = RunService()
+        intent = svc.create_intent(
+            title="星际开拓者3D",
+            genre="3D 动作射击",
+            custom_rules="能量护盾，资源采集",
+            source="test"
+        )
+        self.assertTrue(intent.intent_id.startswith("intent_"))
+        self.assertTrue(intent.run_id.startswith("run_"))
+
+        # 执行全流程调度 (fast 模式)
+        run_res = svc.execute_run(intent, mode="fast")
+        self.assertIn("run_id", run_res)
+        self.assertIn("gate_decisions", run_res)
+        decisions = run_res["gate_decisions"]
+        self.assertEqual(len(decisions), 6)  # G0, G1, G2, G3, G4, G5
+        gate_ids = [d["gate_id"] for d in decisions]
+        self.assertEqual(gate_ids, ["G0", "G1", "G2", "G3", "G4", "G5"])
+
+        # 检查工件存储完整性
+        run_dir = Path(run_res["run_dir"])
+        store = ArtifactStore(run_dir)
+        self.assertTrue(store.verify_all())
 
 
 if __name__ == "__main__":

@@ -4,7 +4,6 @@ server.py: 游戏开发多智能体工作室 Web 服务
 纯 Python 3.10+ 标准库 http.server 实现，零外部依赖，安全加固版。
 """
 import sys
-import os
 import json
 import webbrowser
 from pathlib import Path
@@ -22,9 +21,16 @@ if sys.platform == "win32":
     if hasattr(sys.stderr, "buffer") and getattr(sys.stderr, "encoding", "").lower() != "utf-8":
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
-from core.registry import get_all_agents, GAME_SKILLS, get_stats
+from core.registry import get_all_agents, get_all_teams, GAME_SKILLS, get_stats
 from core.studio_engine import studio_engine
-from core.security_guard import safe_resolve_path, global_rate_limiter, SecurityGuardError
+from core.security_guard import (
+    get_configured_token,
+    global_rate_limiter,
+    has_valid_bearer_token,
+    is_loopback_host,
+    safe_resolve_path,
+    SecurityGuardError,
+)
 from pipeline.rules_researcher import RulesResearcher
 
 MAX_PAYLOAD_BYTES = 5 * 1024 * 1024  # 5MB 限制
@@ -40,13 +46,11 @@ class StudioHTTPHandler(BaseHTTPRequestHandler):
             self.send_json(429, {"error": "Too Many Requests: Rate limit exceeded"})
             return False
 
-        expected_token = os.environ.get("GAME_STUDIO_TOKEN", "").strip()
-        if expected_token:
-            auth_header = self.headers.get("Authorization", "")
-            token = auth_header.replace("Bearer ", "").strip()
-            if token != expected_token:
-                self.send_json(401, {"error": "Unauthorized: Invalid or missing GAME_STUDIO_TOKEN"})
-                return False
+        require_auth = bool(getattr(self.server, "require_auth", False))
+        expected_token = getattr(self.server, "expected_token", "")
+        if require_auth and not has_valid_bearer_token(self.headers, expected_token):
+            self.send_json(401, {"error": "Unauthorized: valid Bearer GAME_STUDIO_TOKEN required"})
+            return False
         return True
 
     def send_json(self, status_code: int, data: any):
@@ -69,6 +73,9 @@ class StudioHTTPHandler(BaseHTTPRequestHandler):
         elif path == "/api/skills":
             self.send_json(200, GAME_SKILLS)
 
+        elif path == "/api/teams":
+            self.send_json(200, get_all_teams())
+
         elif path == "/api/stats":
             self.send_json(200, get_stats())
 
@@ -85,6 +92,19 @@ class StudioHTTPHandler(BaseHTTPRequestHandler):
                 {"id": "next_gen_3a_pbr", "name": "3A 次时代物理材质与 LOD 展台 (Next-Gen 3D PBR/LOD)", "genre": "3D次时代"}
             ]
             self.send_json(200, templates)
+
+        elif path == "/api/toolchain":
+            from core.environment_inspector import EnvironmentInspector
+            manifest = EnvironmentInspector.get_toolchain_manifest()
+            self.send_json(200, manifest)
+
+        elif path == "/api/preflight":
+            from core.environment_inspector import EnvironmentInspector
+            # 支持 query 参数 ?target=web 或 target=godot
+            query_params = dict(qp.split("=", 1) for qp in parsed.query.split("&") if "=" in qp) if parsed.query else {}
+            target = query_params.get("target", "web")
+            pf = EnvironmentInspector.preflight_check(target)
+            self.send_json(200, pf)
 
         else:
             # 静态文件路由（SEC-001 深度防御路径穿越）
@@ -158,12 +178,48 @@ class StudioHTTPHandler(BaseHTTPRequestHandler):
             self.send_json(400, {"error": "Malformed JSON in request body"})
             return
 
-        if path in ("/api/create", "/api/generate"):
+        if path == "/api/v1/runs":
+            from core.run_service import run_service
+            intent = run_service.create_intent(
+                title=str(data.get("title", "未命名游戏"))[:100],
+                genre=str(data.get("genre", "2D 独立游戏"))[:50],
+                custom_rules=str(data.get("custom_rules", ""))[:1000],
+                source="http_v1",
+                subject_id=str(data.get("subject_id", "local"))[:100],
+                profile=str(data.get("profile", "web_survivor_vertical_v1"))[:80],
+            )
+            prepared = run_service.prepare(intent)
+            self.send_json(202, {
+                "status": "accepted",
+                "run_id": intent.run_id,
+                "intent_id": intent.intent_id,
+                "spec_id": prepared["spec"].spec_id,
+                "plan_id": prepared["plan"].plan_id,
+                "next": f"/api/v1/runs/{intent.run_id}",
+            })
+
+        elif path.startswith("/api/v1/runs/") and path.endswith("/status"):
+            from core.run_service import run_service
+            run_id = path[len("/api/v1/runs/"):-len("/status")].strip("/")
+            try:
+                self.send_json(200, run_service.get_run_status(run_id))
+            except FileNotFoundError:
+                self.send_json(404, {"error": "Run not found"})
+
+        elif path == "/api/create" or path == "/api/generate":
             title = str(data.get("title", "中国象棋"))[:100]
             genre = str(data.get("genre", ""))[:50]
             custom_rules = str(data.get("custom_rules", ""))[:1000]
             
-            res = studio_engine.create_game_pipeline(title=title, genre=genre, custom_rules=custom_rules)
+            from core.run_service import run_service
+            res = run_service.create_game(
+                title=title,
+                genre=genre,
+                custom_rules=custom_rules,
+                source="http_legacy",
+            )
+            res["deprecated_endpoint"] = True
+            res["replacement"] = "/api/v1/runs"
             self.send_json(200, res)
 
         elif path == "/api/research_rules":
@@ -184,7 +240,16 @@ class StudioHTTPHandler(BaseHTTPRequestHandler):
             self.send_json(404, {"error": "Endpoint not found"})
 
 def run_server(host: str = "127.0.0.1", port: int = 8090, open_browser: bool = False):
+    is_loopback = is_loopback_host(host)
+    expected_token = get_configured_token()
+    if not is_loopback and not expected_token:
+        raise RuntimeError(
+            f"拒绝启动：监听地址 '{host}' 不是回环地址，必须先配置 GAME_STUDIO_TOKEN。"
+        )
+
     server = HTTPServer((host, port), StudioHTTPHandler)
+    server.require_auth = not is_loopback
+    server.expected_token = expected_token
     url = f"http://{host}:{port}"
     print("=" * 65)
     print("  🎮 Universal Game Dev Agent Studio 工作室控制台已启动")

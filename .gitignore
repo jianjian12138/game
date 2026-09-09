@@ -67,6 +67,7 @@ htmlcov/
 Thumbs.db
 *.tmp
 *.log
+logs/
 tmp_edge_*/
 wechat_article_dump.*
 parsed_games_db.json

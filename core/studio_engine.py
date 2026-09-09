@@ -38,6 +38,8 @@ class StudioEngine:
         mode: str = "fast",
         llm_provider: str = "gemini",
         llm_model: Any = None,
+        run_id: Optional[str] = None,
+        export_release: bool = False,
     ) -> List[Dict[str, Any]]:
         """逐步执行 12 个生命周期 Hooks，支持任务级沙箱隔离与可审计运行清单"""
         from core.agent_philosophy import AgentPhilosophy
@@ -51,9 +53,33 @@ class StudioEngine:
         from hooks.hook_manager import hook_manager
 
         AgentPhilosophy.print_axiom()
-        run_ctx = RunContext(title=title, base_dir=self.output_dir)
-        run_ctx.set_inputs(title=title, genre=genre, custom_rules=custom_rules, mode=mode)
+        run_ctx = RunContext(title=title, base_dir=self.output_dir, run_id=run_id)
+        run_ctx.set_inputs(title=title, genre=genre, custom_rules=custom_rules, mode=mode, export_release=export_release)
         steps = []
+
+        # 3D 次时代美术团队是跨部门交付单元：只有在需求命中 3D/PBR/LOD/材质等
+        # 关键词时加入当前 run；其成员、执行器、工件和门禁均来自 registry 的唯一事实源。
+        from core.registry import get_team_execution_plan
+        is_next_gen_3d = any(
+            keyword in f"{title} {genre} {custom_rules}".lower()
+            for keyword in ("3d", "3a", "pbr", "lod", "次时代", "次世代", "材质", "骨骼", "机甲")
+        )
+        next_gen_team_plan = None
+        if is_next_gen_3d:
+            next_gen_team_plan = get_team_execution_plan(
+                team_id="next_gen_3d_art_team",
+                run_id=run_ctx.run_id,
+                target="webgl" if "web" in genre.lower() or "3d" in genre.lower() else "godot"
+            )
+            team_plan_path = run_ctx.work_dir / "next_gen_3d_art_team_plan.json"
+            team_plan_path.write_text(
+                json.dumps(next_gen_team_plan, ensure_ascii=False, indent=2),
+                encoding="utf-8"
+            )
+            run_ctx.register_artifact("next_gen_3d_art_team_plan", team_plan_path)
+            run_ctx.input_params["teams"] = [next_gen_team_plan]
+        else:
+            run_ctx.input_params["teams"] = []
 
         # 阶段 1: pre_init
         t0 = time.time()
@@ -255,33 +281,70 @@ class StudioEngine:
         t0 = time.time()
         artist = studio_roster.get_agent("art_director")
         palette_keys = list(AudioAndArtSpecsKnowledge.PALETTES.keys())
-        hook_manager.trigger("pre_asset_synthesis", {"palette": palette_keys[0], "run_id": run_ctx.run_id})
-        run_ctx.record_stage("pre_asset_synthesis", time.time() - t0)
-        run_ctx.record_hook("pre_asset_synthesis", ["art_director", "vfx_particle_specialist"])
+        asset_team_agents = (
+            next_gen_team_plan["active_agents"]
+            if next_gen_team_plan
+            else ["art_director", "vfx_particle_specialist"]
+        )
+        asset_team_skills = (
+            sorted({skill for capability in next_gen_team_plan["capabilities"] for skill in capability["skills"]})
+            if next_gen_team_plan
+            else ["canvas_particle_emitter", "lighting_bloom_postprocess"]
+        )
+        hook_manager.trigger("pre_asset_synthesis", {
+            "palette": palette_keys[0],
+            "run_id": run_ctx.run_id,
+            "team_id": next_gen_team_plan["team_id"] if next_gen_team_plan else None,
+            "asset_gates": next_gen_team_plan["required_gates"] if next_gen_team_plan else [],
+        })
+        run_ctx.record_stage("pre_asset_synthesis", time.time() - t0, {
+            "team_id": next_gen_team_plan["team_id"] if next_gen_team_plan else None
+        })
+        run_ctx.record_hook("pre_asset_synthesis", asset_team_agents)
         steps.append({
             "hook": "pre_asset_synthesis",
             "phase": "调色盘体系与材质粒子管线",
-            "active_agents": ["art_director", "vfx_particle_specialist"],
-            "used_skills": ["canvas_particle_emitter", "lighting_bloom_postprocess"],
+            "active_agents": asset_team_agents,
+            "team_id": next_gen_team_plan["team_id"] if next_gen_team_plan else None,
+            "used_skills": asset_team_skills,
+            "required_gates": next_gen_team_plan["required_gates"] if next_gen_team_plan else [],
             "knowledge_module": f"audio_and_art_specs.py (调色盘: {palette_keys[0]})",
             "agent_name": artist.name,
-            "log": f"✨ [{artist.name}] 调入工业调色盘与粒子着色器，注入发光轮廓与爆炸冲击波"
+            "log": (
+                f"✨ [{artist.name}] 调入工业调色盘与材质/粒子管线"
+                + (f"，绑定 {next_gen_team_plan['team_name']}，注册 {len(asset_team_agents)} 名成员与 {len(asset_team_skills)} 项能力"
+                   if next_gen_team_plan else "，注入发光轮廓与爆炸冲击波")
+            )
         })
 
         # 阶段 10: post_asset_synthesis
         t0 = time.time()
         synth_eng = studio_roster.get_agent("webaudio_synth_engineer")
-        hook_manager.trigger("post_asset_synthesis", {"run_id": run_ctx.run_id})
-        run_ctx.record_stage("post_asset_synthesis", time.time() - t0)
-        run_ctx.record_hook("post_asset_synthesis", ["audio_director", "webaudio_synth_engineer", "sfx_designer"])
+        hook_manager.trigger("post_asset_synthesis", {
+            "run_id": run_ctx.run_id,
+            "team_id": next_gen_team_plan["team_id"] if next_gen_team_plan else None,
+        })
+        run_ctx.record_stage("post_asset_synthesis", time.time() - t0, {
+            "team_id": next_gen_team_plan["team_id"] if next_gen_team_plan else None
+        })
+        audio_agents = ["audio_director", "webaudio_synth_engineer", "sfx_designer"]
+        if next_gen_team_plan:
+            audio_agents = list(dict.fromkeys(audio_agents + ["adaptive_audio_master", "pbr_material_pipeline_engineer"]))
+        run_ctx.record_hook("post_asset_synthesis", audio_agents)
         steps.append({
             "hook": "post_asset_synthesis",
-            "phase": "WebAudio 原生 ADSR 音效合成",
-            "active_agents": ["audio_director", "webaudio_synth_engineer", "sfx_designer"],
-            "used_skills": ["webaudio_retro_synth", "adsr_envelope_shaper"],
+            "phase": "WebAudio 原生 ADSR 音效合成与次时代资产交付准备",
+            "active_agents": audio_agents,
+            "team_id": next_gen_team_plan["team_id"] if next_gen_team_plan else None,
+            "used_skills": ["webaudio_retro_synth", "adsr_envelope_shaper"] + (
+                ["pbr_five_channel_baking", "tangent_normal_brdf_shader"] if next_gen_team_plan else []
+            ),
             "knowledge_module": "audio_and_art_specs.py (PROCEDURAL_SFX_PRESETS: 激光/爆炸/金币)",
             "agent_name": synth_eng.name,
-            "log": f"🎵 [{synth_eng.name}] 基于知识库 ADSR 参数合成原生激光、爆炸、受击与大三和弦音效"
+            "log": (
+                f"🎵 [{synth_eng.name}] 基于知识库 ADSR 参数合成原生激光、爆炸、受击与大三和弦音效"
+                + ("；3D 次时代团队资产计划已登记，待 PBR/LOD/骨骼门禁验证" if next_gen_team_plan else "")
+            )
         })
 
         # 阶段 11: pre_qa_audit
@@ -311,8 +374,11 @@ class StudioEngine:
         # 生成可审计运行清单 run_manifest.json
         manifest = run_ctx.generate_manifest()
 
-        # 原子同步提升至目标发布目录
-        run_ctx.promote_to_release(self.output_dir)
+        # 默认只完成运行目录归档；只有显式 export_release 才允许旧兼容导出。
+        # 正式 Preview/Production 候选必须由 ReleaseService 创建 ReleaseManifest。
+        promoted = []
+        if export_release:
+            promoted = run_ctx.promote_to_release(self.output_dir)
 
         hook_manager.trigger("post_release", {
             "title": title, "run_id": run_ctx.run_id, "output_dir": str(self.output_dir)
@@ -327,7 +393,9 @@ class StudioEngine:
             "used_skills": ["cross_browser_api_linter"],
             "knowledge_module": "godot_engine_specs.py (project.godot / main.tscn / main.gd)",
             "agent_name": producer.name,
-            "log": f"🎉 [{producer.name}] 商业工程交付完成: 沙箱 {run_ctx.run_id} 已原子提升至 {self.output_dir}，Godot 4 跨端工程就绪",
+            "promoted_files": [str(path) for path in promoted],
+            "log": (f"🎉 [{producer.name}] 运行目录交付完成: 沙箱 {run_ctx.run_id} 已归档"
+                    + (f"，兼容导出至 {self.output_dir}" if export_release else "，未执行发布提升；需通过 ReleaseService 门禁")), 
             "game_file": str(self.output_dir / "index.html"),
             "godot_dir": str(godot_dir),
             "gdd_file": str(self.output_dir / "GDD.md"),
@@ -336,6 +404,7 @@ class StudioEngine:
         })
 
         self._last_run_ctx = run_ctx
+        self._last_team_plan = next_gen_team_plan
         return steps
 
     def create_game_pipeline(
@@ -346,6 +415,8 @@ class StudioEngine:
         mode: str = "fast",
         llm_provider: str = "gemini",
         llm_model: Any = None,
+        run_id: Optional[str] = None,
+        export_release: bool = False,
     ) -> Dict[str, Any]:
         steps = self.execute_step_by_step(
             title=title,
@@ -354,11 +425,14 @@ class StudioEngine:
             mode=mode,
             llm_provider=llm_provider,
             llm_model=llm_model,
+            run_id=run_id,
+            export_release=export_release,
         )
         logs = [s["log"] for s in steps]
         last = steps[-1]
         run_id = last.get("run_id", "")
         run_ctx = getattr(self, "_last_run_ctx", None)
+        run_ctx_team_plan = getattr(self, "_last_team_plan", None)
         manifest = run_ctx.generate_manifest() if run_ctx else {}
 
         return {
@@ -371,7 +445,8 @@ class StudioEngine:
             "game_file": last.get("game_file"),
             "godot_dir": last.get("godot_dir"),
             "gdd_file": last.get("gdd_file"),
-            "qa_verdict": last.get("qa_verdict")
+            "qa_verdict": last.get("qa_verdict"),
+            "teams": [run_ctx_team_plan] if run_ctx_team_plan else [],
         }
 
 studio_engine = StudioEngine()

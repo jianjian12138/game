@@ -8,6 +8,8 @@ import json
 from pathlib import Path
 from typing import Dict, Any
 
+from core.registry import get_team
+
 class SettingOverviewRouter:
     """
     项目级路由与前置约束中心 (Setting Overview Router)
@@ -198,10 +200,18 @@ class EngineFingerprintDetector:
         # 叠加学科领域 (Disciplines)
         additive_disciplines = []
         if any(k in prompt_lower for k in ("pbr", "3d", "次时代", "材质", "贴图", "lod")):
+            next_gen_team = get_team("next_gen_3d_art_team")
             additive_disciplines.append({
-                "discipline": "Next-Gen 3D Rendering & PBR",
-                "agents": ["next_gen_sculpting_director", "pbr_texture_baker", "lod_mesh_budget_auditor"],
-                "skills": ["pbr_five_channel_baking", "multi_tier_lod_generator", "tangent_normal_brdf_shader"]
+                "discipline": "Next-Gen 3D Art & Asset Engineering",
+                "team_id": next_gen_team["id"],
+                "team_name": next_gen_team["name"],
+                "lead_agent": next_gen_team["lead_agent"],
+                "agents": next_gen_team["members"],
+                "skills": sorted({skill for capability in next_gen_team["capabilities"] for skill in capability["skills"]}),
+                "executors": sorted({executor for capability in next_gen_team["capabilities"] for executor in capability["executors"]}),
+                "artifacts": sorted({artifact for capability in next_gen_team["capabilities"] for artifact in capability["artifacts"]}),
+                "required_gates": next_gen_team["required_gates"],
+                "maturity": next_gen_team["maturity"],
             })
         if any(k in prompt_lower for k in ("打击感", "手感", "顿帧", "震屏", "shake", "juice")):
             additive_disciplines.append({
