@@ -39,7 +39,7 @@ class StudioEngine:
         llm_provider: str = "gemini",
         llm_model: Any = None,
     ) -> List[Dict[str, Any]]:
-        """逐步执行 12 个生命周期 Hooks，解耦上层 agents 与 pipeline 静态绑定"""
+        """逐步执行 12 个生命周期 Hooks，支持任务级沙箱隔离与可审计运行清单"""
         from core.agent_philosophy import AgentPhilosophy
         from agents.studio_roster import studio_roster
         from pipeline.gdd_generator import GDDGenerator
@@ -47,12 +47,23 @@ class StudioEngine:
         from pipeline.visual_qa_loop import VisualQALoop
         from pipeline.godot_exporter import GodotExporter
         from pipeline.peer_review_pipeline import PeerReviewPipeline
+        from core.run_context import RunContext
+        from hooks.hook_manager import hook_manager
 
         AgentPhilosophy.print_axiom()
+        run_ctx = RunContext(title=title, base_dir=self.output_dir)
+        run_ctx.set_inputs(title=title, genre=genre, custom_rules=custom_rules, mode=mode)
         steps = []
 
         # 阶段 1: pre_init
+        t0 = time.time()
         p_lead = studio_roster.get_agent("project_lead")
+        hook_ctx = hook_manager.trigger("pre_init", {
+            "title": title, "genre": genre, "phase": "商业立项与规范预检",
+            "run_id": run_ctx.run_id, "work_dir": str(run_ctx.work_dir)
+        })
+        run_ctx.record_stage("pre_init", time.time() - t0)
+        run_ctx.record_hook("pre_init", ["project_lead", "tools_pipeline_engineer"])
         steps.append({
             "hook": "pre_init",
             "phase": "商业立项与规范预检",
@@ -60,11 +71,17 @@ class StudioEngine:
             "used_skills": ["control_scheme_mapping"],
             "knowledge_module": "godot_engine_specs.py",
             "agent_name": p_lead.name,
-            "log": f"📋 [{p_lead.name}] 确立《{title}》研发基线，加载 Godot 4 视口与 WebAssembly 编译工具链"
+            "log": f"📋 [{p_lead.name}] 确立《{title}》研发基线，分配任务沙箱: {run_ctx.run_id}"
         })
 
         # 阶段 2: post_init
+        t0 = time.time()
         scrum = studio_roster.get_agent("agile_scrum_master")
+        hook_manager.trigger("post_init", {
+            "title": title, "phase": "敏捷任务拆解与泳道分配", "run_id": run_ctx.run_id
+        })
+        run_ctx.record_stage("post_init", time.time() - t0)
+        run_ctx.record_hook("post_init", ["agile_scrum_master"])
         steps.append({
             "hook": "post_init",
             "phase": "敏捷任务拆解与泳道分配",
@@ -72,14 +89,22 @@ class StudioEngine:
             "used_skills": ["quest_tree_builder"],
             "knowledge_module": "math_and_economy.py",
             "agent_name": scrum.name,
-            "log": f"⚡ [{scrum.name}] 拆解 12 个生命周期冲刺任务，分配 6 大部门 75 位专家协作泳道"
+            "log": f"⚡ [{scrum.name}] 拆解 12 个生命周期冲刺任务，分配 6 大部门 82 位专家协作泳道"
         })
 
         # 阶段 3: pre_gdd (多智能体共识研讨会)
+        t0 = time.time()
         designer = studio_roster.get_agent("lead_game_designer")
         consensus = ConsensusEngine.conduct_design_roundtable(title, genre, custom_rules)
-        (self.output_dir / "Consensus_Record.json").write_text(json.dumps(consensus, ensure_ascii=False, indent=2), encoding="utf-8")
-        
+        consensus_path = run_ctx.work_dir / "Consensus_Record.json"
+        consensus_path.write_text(json.dumps(consensus, ensure_ascii=False, indent=2), encoding="utf-8")
+        run_ctx.register_artifact("consensus_record", consensus_path)
+
+        hook_manager.trigger("pre_gdd", {
+            "title": title, "consensus": consensus, "run_id": run_ctx.run_id
+        })
+        run_ctx.record_stage("pre_gdd", time.time() - t0)
+        run_ctx.record_hook("pre_gdd", ["lead_game_designer", "lead_architect", "combat_balancer", "qa_director"])
         steps.append({
             "hook": "pre_gdd",
             "phase": "多专家多轮共识研讨与架构质询",
@@ -91,6 +116,7 @@ class StudioEngine:
         })
 
         # 阶段 4: post_gdd
+        t0 = time.time()
         producer = studio_roster.get_agent("executive_producer")
         balancer = studio_roster.get_agent("combat_balancer")
         gdd_text = GDDGenerator.generate_gdd(
@@ -101,21 +127,49 @@ class StudioEngine:
             llm_provider=llm_provider,
             llm_model=llm_model,
         )
-        gdd_path = self.output_dir / "GDD.md"
+        gdd_path = run_ctx.work_dir / "GDD.md"
         gdd_path.write_text(gdd_text, encoding="utf-8")
+        run_ctx.register_artifact("gdd_md", gdd_path)
 
+        # 产出结构化 gdd.json 工件
+        gdd_data = {
+            "title": title,
+            "genre": genre,
+            "core_mechanics": custom_rules,
+            "target_framerate": 60,
+            "input_spec": "Keyboard + Touch 6-frame buffer",
+            "economy_model": "3-card-pick / log-decay balance",
+            "chapters_count": 8,
+            "length_chars": len(gdd_text),
+            "created_at": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        gdd_json_path = run_ctx.work_dir / "gdd.json"
+        gdd_json_path.write_text(json.dumps(gdd_data, ensure_ascii=False, indent=2), encoding="utf-8")
+        run_ctx.register_artifact("gdd_json", gdd_json_path)
+
+        hook_manager.trigger("post_gdd", {
+            "title": title, "gdd_path": str(gdd_path), "run_id": run_ctx.run_id
+        })
+        run_ctx.record_stage("post_gdd", time.time() - t0)
+        run_ctx.record_hook("post_gdd", ["executive_producer", "combat_balancer", "lead_narrative_designer"])
         steps.append({
             "hook": "post_gdd",
-            "phase": "8 大章节工业级 GDD 定案",
+            "phase": "8 大章节工业级 GDD 定案与结构化契约",
             "active_agents": ["executive_producer", "combat_balancer", "lead_narrative_designer"],
             "used_skills": ["gdd_markdown_spec", "dialogue_branching_tree"],
             "knowledge_module": "math_and_economy.py (三选一卡牌掉落分布/对数衰减公式)",
             "agent_name": producer.name,
-            "log": f"📜 [{producer.name}] 输出 8 大章节 GDD 规格书 (字数: {len(gdd_text)})，签署数值稳健性契约"
+            "log": f"📜 [{producer.name}] 输出 8 大章节 GDD 规格书 (字数: {len(gdd_text)}) 与结构化契约 gdd.json"
         })
 
         # 阶段 5: pre_core_loop
+        t0 = time.time()
         architect = studio_roster.get_agent("lead_architect")
+        hook_manager.trigger("pre_core_loop", {
+            "title": title, "phase": "三层解耦与 Actor-Trait 架构装配", "run_id": run_ctx.run_id
+        })
+        run_ctx.record_stage("pre_core_loop", time.time() - t0)
+        run_ctx.record_hook("pre_core_loop", ["lead_architect", "gameplay_programmer"])
         steps.append({
             "hook": "pre_core_loop",
             "phase": "三层解耦与 Actor-Trait 架构装配",
@@ -127,6 +181,7 @@ class StudioEngine:
         })
 
         # 阶段 6: post_core_loop
+        t0 = time.time()
         programmer = studio_roster.get_agent("gameplay_programmer")
         raw_code = VerbAssembler.assemble_game(
             title=title,
@@ -136,6 +191,11 @@ class StudioEngine:
             llm_provider=llm_provider,
             llm_model=llm_model,
         )
+        hook_manager.trigger("post_core_loop", {
+            "title": title, "raw_code_len": len(raw_code), "run_id": run_ctx.run_id
+        })
+        run_ctx.record_stage("post_core_loop", time.time() - t0)
+        run_ctx.record_hook("post_core_loop", ["gameplay_programmer", "ai_behavior_engineer"])
         steps.append({
             "hook": "post_core_loop",
             "phase": "动词驱动器与 60fps 确定性状态机装配",
@@ -147,6 +207,7 @@ class StudioEngine:
         })
 
         # 阶段 7: pre_code_review (同行审查)
+        t0 = time.time()
         critic = studio_roster.get_agent("code_critic")
         critic_name = critic.name if critic else "Code Critic"
         review_report = PeerReviewPipeline.audit_and_signoff(raw_code)
@@ -155,7 +216,15 @@ class StudioEngine:
             round(sum(1 for r in _revs if r.get("verdict") == "PASSED") / len(_revs) * 100, 1)
             if _revs else 0.0
         )
-        (self.output_dir / "Peer_Review_Report.json").write_text(json.dumps(review_report, ensure_ascii=False, indent=2), encoding="utf-8")
+        peer_review_path = run_ctx.work_dir / "Peer_Review_Report.json"
+        peer_review_path.write_text(json.dumps(review_report, ensure_ascii=False, indent=2), encoding="utf-8")
+        run_ctx.register_artifact("peer_review_report", peer_review_path)
+
+        hook_manager.trigger("pre_code_review", {
+            "pass_rate": review_report["pass_rate"], "run_id": run_ctx.run_id
+        })
+        run_ctx.record_stage("pre_code_review", time.time() - t0)
+        run_ctx.record_hook("pre_code_review", ["code_critic", "security_engineer"])
         steps.append({
             "hook": "pre_code_review",
             "phase": "红蓝军代码架构与坏味道审查",
@@ -167,7 +236,11 @@ class StudioEngine:
         })
 
         # 阶段 8: post_code_review
+        t0 = time.time()
         perf_eng = studio_roster.get_agent("performance_optimizer")
+        hook_manager.trigger("post_code_review", {"title": title, "run_id": run_ctx.run_id})
+        run_ctx.record_stage("post_code_review", time.time() - t0)
+        run_ctx.record_hook("post_code_review", ["performance_optimizer"])
         steps.append({
             "hook": "post_code_review",
             "phase": "内存泄漏与垃圾回收 (GC) 零分配审计",
@@ -179,8 +252,12 @@ class StudioEngine:
         })
 
         # 阶段 9: pre_asset_synthesis
+        t0 = time.time()
         artist = studio_roster.get_agent("art_director")
         palette_keys = list(AudioAndArtSpecsKnowledge.PALETTES.keys())
+        hook_manager.trigger("pre_asset_synthesis", {"palette": palette_keys[0], "run_id": run_ctx.run_id})
+        run_ctx.record_stage("pre_asset_synthesis", time.time() - t0)
+        run_ctx.record_hook("pre_asset_synthesis", ["art_director", "vfx_particle_specialist"])
         steps.append({
             "hook": "pre_asset_synthesis",
             "phase": "调色盘体系与材质粒子管线",
@@ -192,7 +269,11 @@ class StudioEngine:
         })
 
         # 阶段 10: post_asset_synthesis
+        t0 = time.time()
         synth_eng = studio_roster.get_agent("webaudio_synth_engineer")
+        hook_manager.trigger("post_asset_synthesis", {"run_id": run_ctx.run_id})
+        run_ctx.record_stage("post_asset_synthesis", time.time() - t0)
+        run_ctx.record_hook("post_asset_synthesis", ["audio_director", "webaudio_synth_engineer", "sfx_designer"])
         steps.append({
             "hook": "post_asset_synthesis",
             "phase": "WebAudio 原生 ADSR 音效合成",
@@ -204,37 +285,57 @@ class StudioEngine:
         })
 
         # 阶段 11: pre_qa_audit
+        t0 = time.time()
         qa_dir = studio_roster.get_agent("qa_director")
         qa_res = VisualQALoop.audit_and_heal(raw_code)
+        hook_manager.trigger("pre_qa_audit", {"qa_verdict": qa_res["verdict"], "run_id": run_ctx.run_id})
+        run_ctx.record_stage("pre_qa_audit", time.time() - t0)
+        run_ctx.record_hook("pre_qa_audit", ["qa_director", "headless_automation_qa", "visual_glitch_inspector"])
         steps.append({
             "hook": "pre_qa_audit",
-            "phase": "CCD 反穿模与 godogen 视觉自愈",
+            "phase": "CCD 反穿模与结构化语法校验",
             "active_agents": ["qa_director", "headless_automation_qa", "visual_glitch_inspector"],
             "used_skills": ["headless_input_simulator", "fps_stability_auditor", "visual_frame_diff_auditor"],
             "knowledge_module": "qa_and_antiglitch.py (CCD 连续碰撞/固定 60Hz 步长)",
             "agent_name": qa_dir.name,
-            "log": f"👁️ [{qa_dir.name}] 执行 CCD 反穿模检验与 100 帧无头自愈审计，判定: 【{qa_res['verdict']}】"
+            "log": f"👁️ [{qa_dir.name}] 执行 CCD 反穿模检验与结构化语法审计，判定: 【{qa_res['verdict']}】"
         })
 
         # 阶段 12: post_release
-        game_path = self.output_dir / "index.html"
+        t0 = time.time()
+        game_path = run_ctx.work_dir / "index.html"
         game_path.write_text(qa_res["healed_code"], encoding="utf-8")
-        godot_dir = GodotExporter.export_godot_project(title, genre, self.output_dir)
+        run_ctx.register_artifact("game_html", game_path)
+        godot_dir = GodotExporter.export_godot_project(title, genre, run_ctx.work_dir)
+
+        # 生成可审计运行清单 run_manifest.json
+        manifest = run_ctx.generate_manifest()
+
+        # 原子同步提升至目标发布目录
+        run_ctx.promote_to_release(self.output_dir)
+
+        hook_manager.trigger("post_release", {
+            "title": title, "run_id": run_ctx.run_id, "output_dir": str(self.output_dir)
+        })
+        run_ctx.record_stage("post_release", time.time() - t0)
+        run_ctx.record_hook("post_release", ["executive_producer", "platform_porting_engineer"])
 
         steps.append({
             "hook": "post_release",
-            "phase": "商业级工程交付与 Godot 4 导出",
+            "phase": "商业级工程交付与原子提升发布",
             "active_agents": ["executive_producer", "platform_porting_engineer"],
             "used_skills": ["cross_browser_api_linter"],
             "knowledge_module": "godot_engine_specs.py (project.godot / main.tscn / main.gd)",
             "agent_name": producer.name,
-            "log": f"🎉 [{producer.name}] 商业工程构建交付: Web 3D/2D 沙盒已热挂载，Godot 4 跨端商业工程包已成功导出至 {godot_dir}",
-            "game_file": str(game_path),
+            "log": f"🎉 [{producer.name}] 商业工程交付完成: 沙箱 {run_ctx.run_id} 已原子提升至 {self.output_dir}，Godot 4 跨端工程就绪",
+            "game_file": str(self.output_dir / "index.html"),
             "godot_dir": str(godot_dir),
-            "gdd_file": str(gdd_path),
+            "gdd_file": str(self.output_dir / "GDD.md"),
+            "run_id": run_ctx.run_id,
             "qa_verdict": qa_res["verdict"]
         })
 
+        self._last_run_ctx = run_ctx
         return steps
 
     def create_game_pipeline(
@@ -256,9 +357,15 @@ class StudioEngine:
         )
         logs = [s["log"] for s in steps]
         last = steps[-1]
+        run_id = last.get("run_id", "")
+        run_ctx = getattr(self, "_last_run_ctx", None)
+        manifest = run_ctx.generate_manifest() if run_ctx else {}
+
         return {
             "status": "success",
+            "run_id": run_id,
             "title": title,
+            "manifest": manifest,
             "steps": steps,
             "logs": logs,
             "game_file": last.get("game_file"),

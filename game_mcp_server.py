@@ -29,6 +29,7 @@ from pipeline.visual_qa_loop import VisualQALoop
 from pipeline.evidence_healer import EvidenceHealer
 from core.llm_gateway import LLMGateway
 from core.prompt_template_engine import CodeGenPrompt, ReviewPrompt
+from core.security_guard import safe_resolve_path, SecurityGuardError
 
 MCP_TOOLS = [
     {
@@ -552,8 +553,12 @@ def handle_rpc_request(req: dict) -> dict:
 
         elif tool_name == "run_red_team_audit":
             from pipeline.adversarial_red_team import RedTeamInquisitor
-            target = args.get("target") or str(ROOT / "output" / "cyber_survivor" / "index.html")
-            res = RedTeamInquisitor.audit_game(target)
+            raw_target = args.get("target") or "output/cyber_survivor/index.html"
+            try:
+                target_p = safe_resolve_path(raw_target)
+            except SecurityGuardError as e:
+                return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": str(e)}}
+            res = RedTeamInquisitor.audit_game(str(target_p))
             return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": json.dumps(res, ensure_ascii=False, indent=2)}]}}
 
         elif tool_name == "solve_logistics_topology":
@@ -600,9 +605,13 @@ def handle_rpc_request(req: dict) -> dict:
             return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": json.dumps(res, ensure_ascii=False, indent=2)}]}}
 
         elif tool_name == "audit_engine_architecture":
-            target_path = Path(args.get("target", "output/industrial_engine_showcase/index.html"))
+            raw_target = args.get("target") or "output/industrial_engine_showcase/index.html"
+            try:
+                target_path = safe_resolve_path(raw_target)
+            except SecurityGuardError as e:
+                return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": str(e)}}
             if not target_path.exists():
-                target_path = Path("output/mindustry_mini/index.html")
+                target_path = ROOT / "output" / "mindustry_mini" / "index.html"
             code = target_path.read_text(encoding="utf-8") if target_path.exists() else ""
             has_scene_graph = "TransformNode" in code or "worldMatrix" in code
             has_render_queue = "BatchRenderer" in code or "RenderCommand" in code

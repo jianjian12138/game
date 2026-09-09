@@ -24,6 +24,7 @@ if sys.platform == "win32":
 
 from core.registry import get_all_agents, GAME_SKILLS, get_stats
 from core.studio_engine import studio_engine
+from core.security_guard import safe_resolve_path, global_rate_limiter, SecurityGuardError
 from pipeline.rules_researcher import RulesResearcher
 
 MAX_PAYLOAD_BYTES = 5 * 1024 * 1024  # 5MB 限制
@@ -32,6 +33,21 @@ class StudioHTTPHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         # 记录关键访问日志供安全审计
         sys.stderr.write(f"[{self.log_date_time_string()}] {self.address_string()} {format % args}\n")
+
+    def _check_auth_and_rate_limit(self) -> bool:
+        client_ip = self.client_address[0] if self.client_address else "127.0.0.1"
+        if not global_rate_limiter.is_allowed(client_ip):
+            self.send_json(429, {"error": "Too Many Requests: Rate limit exceeded"})
+            return False
+
+        expected_token = os.environ.get("GAME_STUDIO_TOKEN", "").strip()
+        if expected_token:
+            auth_header = self.headers.get("Authorization", "")
+            token = auth_header.replace("Bearer ", "").strip()
+            if token != expected_token:
+                self.send_json(401, {"error": "Unauthorized: Invalid or missing GAME_STUDIO_TOKEN"})
+                return False
+        return True
 
     def send_json(self, status_code: int, data: any):
         self.send_response(status_code)
@@ -42,6 +58,8 @@ class StudioHTTPHandler(BaseHTTPRequestHandler):
         self.wfile.write(json.dumps(data, ensure_ascii=False).encode("utf-8"))
 
     def do_GET(self):
+        if not self._check_auth_and_rate_limit():
+            return
         parsed = urlparse(self.path)
         path = parsed.path
 
@@ -113,6 +131,8 @@ class StudioHTTPHandler(BaseHTTPRequestHandler):
                 self.end_headers()
 
     def do_POST(self):
+        if not self._check_auth_and_rate_limit():
+            return
         parsed = urlparse(self.path)
         path = parsed.path
 

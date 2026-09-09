@@ -5,6 +5,7 @@ Save Serializer — 游戏状态序列化/反序列化
 """
 
 from __future__ import annotations
+import os
 import json
 import hashlib
 import time
@@ -65,10 +66,12 @@ class SaveSerializer:
         payload["_meta"]["checksum"] = SaveIntegrity.compute_checksum(payload["data"])
 
         path = save_dir / f"slot_{slot:02d}.json"
-        path.write_text(
+        tmp_path = save_dir / f".tmp_slot_{slot:02d}_{os.getpid()}_{int(time.time() * 1000)}.json"
+        tmp_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        os.replace(tmp_path, path)
         print(f"[SaveSystem] OK saved: {path} (slot {slot})")
         return path
 

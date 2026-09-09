@@ -382,12 +382,153 @@ class Test14_MultiChannelDistributionAudit(unittest.TestCase):
             self.assertTrue((itch_dir / "itch.json").exists())
             self.assertTrue((itch_dir / "butler_push.bat").exists())
 
-            # 5. 合规门禁审查
+            # 5. 合规门禁审查与发布清单
             self.assertIn(report["compliance"]["compliance_verdict"], ("CERTIFIED_SAFE", "ACCEPTABLE_WITH_WARNINGS"))
             self.assertEqual(report["compliance"]["passed_checks"], 3)
+            self.assertEqual(report["compliance"]["maturity_level"], "RELEASABLE")
+            self.assertTrue((test_dist_dir / "compliance_manifest.json").exists())
         finally:
             if test_dist_dir.exists():
                 shutil.rmtree(test_dist_dir, ignore_errors=True)
+
+
+class Test15_TaskIsolationAndAtomicSaveAudit(unittest.TestCase):
+    """验证任务级沙箱隔离 (RunContext) 与存档原子替换 (SaveSerializer)"""
+
+    def test_run_context_isolation_and_atomic_promotion(self):
+        from core.run_context import RunContext
+        test_dir = ROOT / "output" / "test_iso_temp"
+        try:
+            ctx = RunContext(title="沙箱测试战役", base_dir=test_dir)
+            self.assertTrue(ctx.work_dir.exists())
+            self.assertTrue(ctx.run_id.startswith("run_"))
+
+            # 模拟在沙箱内写入制品
+            dummy_file = ctx.work_dir / "index.html"
+            dummy_file.write_text("<html><body>SANDBOX_OK</body></html>", encoding="utf-8")
+            h = ctx.register_artifact("game_html", dummy_file)
+            self.assertEqual(len(h), 64)  # SHA-256
+
+            manifest = ctx.generate_manifest()
+            self.assertIn("run_id", manifest)
+            self.assertIn("artifacts", manifest)
+
+            # 原子提升到发布目录
+            release_dir = test_dir / "release"
+            promoted = ctx.promote_to_release(release_dir, ["index.html"])
+            self.assertEqual(len(promoted), 1)
+            self.assertTrue((release_dir / "index.html").exists())
+            self.assertEqual((release_dir / "index.html").read_text(encoding="utf-8"), "<html><body>SANDBOX_OK</body></html>")
+        finally:
+            if test_dir.exists():
+                shutil.rmtree(test_dir, ignore_errors=True)
+
+    def test_save_serializer_atomic_persistence(self):
+        from core.save_system.save_serializer import SaveSerializer
+        test_save_dir = ROOT / "output" / "test_save_temp"
+        try:
+            state = {"hero_hp": 100, "gold": 500, "level": 3}
+            path = SaveSerializer.save(state, slot=9, save_dir=test_save_dir)
+            self.assertTrue(path.exists())
+
+            # 确保临时文件没有残留
+            temp_files = list(test_save_dir.glob(".tmp_*"))
+            self.assertEqual(len(temp_files), 0)
+
+            # 正常读回验证
+            loaded = SaveSerializer.load(slot=9, save_dir=test_save_dir)
+            self.assertEqual(loaded["hero_hp"], 100)
+            self.assertEqual(loaded["gold"], 500)
+        finally:
+            if test_save_dir.exists():
+                shutil.rmtree(test_save_dir, ignore_errors=True)
+
+
+class Test16_SecurityPathTraversalAudit(unittest.TestCase):
+    """验证工作区安全白名单防御、路径穿越阻断与限流机制"""
+
+    def test_safe_resolve_path_and_traversal_blocking(self):
+        from core.security_guard import safe_resolve_path, SecurityGuardError
+
+        # 1. 允许的工作区内部路径
+        p_valid = safe_resolve_path("pipeline/verb_assembler.py")
+        self.assertTrue(p_valid.exists())
+
+        # 2. 阻断试图越界访问系统的绝对路径或父级穿越
+        with self.assertRaises(SecurityGuardError):
+            safe_resolve_path("../../../../../../../Windows/System32")
+
+        with self.assertRaises(SecurityGuardError):
+            safe_resolve_path("C:/Windows/System32/drivers/etc/hosts")
+
+    def test_rate_limiter_sliding_window(self):
+        from core.security_guard import RateLimiter
+        limiter = RateLimiter(max_requests=3, window_seconds=2.0)
+        client = "192.168.1.100"
+        self.assertTrue(limiter.is_allowed(client))
+        self.assertTrue(limiter.is_allowed(client))
+        self.assertTrue(limiter.is_allowed(client))
+        # 超过限制，被拦截
+        self.assertFalse(limiter.is_allowed(client))
+
+
+class Test17_RealLifecycleHookExecutionAudit(unittest.TestCase):
+    """验证 12 个生命周期 Hooks 真实调度执行与结构化工件产出"""
+
+    def test_studio_engine_real_hook_and_structured_artifacts(self):
+        from core.studio_engine import StudioEngine
+        from hooks.hook_manager import hook_manager
+
+        test_out = ROOT / "output" / "test_engine_hook_temp"
+        try:
+            engine = StudioEngine(output_dir=test_out)
+            res = engine.create_game_pipeline(title="幽灵突击队", genre="2D动作射击")
+
+            # 1. 验证返回数据结构完备
+            self.assertEqual(res["status"], "success")
+            self.assertTrue(res["run_id"].startswith("run_"))
+            self.assertIn("manifest", res)
+
+            # 2. 验证真实 Hook 触发历史
+            history = hook_manager.get_history()
+            hook_names = [h["hook"] for h in history]
+            self.assertIn("pre_init", hook_names)
+            self.assertIn("post_init", hook_names)
+            self.assertIn("pre_gdd", hook_names)
+            self.assertIn("post_release", hook_names)
+
+            # 3. 验证结构化 gdd.json 工件已正确生成与提升
+            gdd_json_file = test_out / "gdd.json"
+            self.assertTrue(gdd_json_file.exists())
+            gdd_data = json.loads(gdd_json_file.read_text(encoding="utf-8"))
+            self.assertEqual(gdd_data["title"], "幽灵突击队")
+            self.assertEqual(gdd_data["target_framerate"], 60)
+            self.assertIn("chapters_count", gdd_data)
+        finally:
+            if test_out.exists():
+                shutil.rmtree(test_out, ignore_errors=True)
+
+
+class Test18_WeChatComplianceDefaultsAudit(unittest.TestCase):
+    """验证微信打包生产默认安全合规 (urlCheck: true)"""
+
+    def test_wechat_packager_default_urlcheck_compliance(self):
+        from pipeline.wechat_packager import WeChatPackager
+        test_wx_dir = ROOT / "output" / "test_wx_compliance_temp"
+        try:
+            packager = WeChatPackager(workspace_root=ROOT)
+            dummy_html = ROOT / "output" / "cyber_survivor" / "index.html"
+            res = packager.bundle(
+                source_html=dummy_html,
+                output_dir=test_wx_dir,
+                project_name="微信合规测试"
+            )
+            proj_conf = json.loads((test_wx_dir / "project.config.json").read_text(encoding="utf-8"))
+            # 必须默认开启安全域名校验
+            self.assertTrue(proj_conf["setting"]["urlCheck"], "微信配置默认必须开启 urlCheck 安全网络校验")
+        finally:
+            if test_wx_dir.exists():
+                shutil.rmtree(test_wx_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

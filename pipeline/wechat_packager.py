@@ -224,7 +224,7 @@ class WeChatPackager:
             "description": "Antigravity Ford-T AI-Native Game Platform WeChat Build",
             "appid": app_id,
             "setting": {
-                "urlCheck": False,
+                "urlCheck": True,
                 "es6": True,
                 "enhance": True,
                 "postcss": False,
