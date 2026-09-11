@@ -113,10 +113,17 @@ python game_agent.py balance --type card --games 500
 # 5. 打包微信小游戏合规工程（带 4MB 分包预检）
 python game_agent.py wechat-pack --template survivor_danmaku --out dist/wechat
 
-# 6. 执行全链路工业标准自动化测试与 G0~G7 门禁裁决
+# 6. 视觉多层图层比对与真机基准自举（像素级真实解码 + 诚实降级）
+python game_agent.py diff output/gameplay.png
+python game_agent.py diff --seed output/gameplay.png --name target
+
+# 7. 玩家品味信号提取与提示词约束注入（TapTap/Steam 痛点与分群偏好）
+python game_agent.py taste --genre "3D FPS"
+
+# 8. 执行全链路工业标准自动化测试与 G0~G7 门禁裁决
 python pipeline/test_all_standards.py
 
-# 7. 启动本地可视化工作室控制台
+# 9. 启动本地可视化工作室控制台
 python server.py --browser --port 8090
 ```
 

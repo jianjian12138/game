@@ -53,8 +53,16 @@ class StudioEngine:
         from hooks.hook_manager import hook_manager
 
         AgentPhilosophy.print_axiom()
+
+        # 接入玩家品味信号 (TasteSignal)，打通品类偏好与视听交互底线
+        from pipeline.taste_signal import TasteSignal
+        taste_constraints = TasteSignal.to_design_constraints(genre=genre)
+        if taste_constraints.get("avoid") or taste_constraints.get("prefer") or taste_constraints.get("visual"):
+            custom_rules = TasteSignal.attach_to_prompt(custom_rules, taste_constraints)
+
         run_ctx = RunContext(title=title, base_dir=self.output_dir, run_id=run_id)
         run_ctx.set_inputs(title=title, genre=genre, custom_rules=custom_rules, mode=mode, export_release=export_release)
+        run_ctx.input_params["taste_constraints"] = taste_constraints
         steps = []
 
         # 3D 次时代美术团队是跨部门交付单元：只有在需求命中 3D/PBR/LOD/材质等

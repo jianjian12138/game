@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 visual_diff_engine.py: 像素级视觉真理差分与多层热力图比对引擎 (Visual Diff Engine)
-纯 Python 3.9+ 标准库实现，零外部依赖 (利用 struct/zlib 原生解析 PNG)。
+纯 Python 3.9+ 标准库实现，零外部依赖（复用 pipeline.png_io 做真实像素解码，不读压缩字节代理）。
 
 负责：
 1. 黄金基准帧 (Golden Reference Frames) 管理
@@ -13,57 +13,83 @@ visual_diff_engine.py: 像素级视觉真理差分与多层热力图比对引擎
    - 是否存在图层颠倒变异 (Layer Mutation)
 4. 输出结构化视觉缺陷诊断报告与修改建议
 """
-import sys
-import os
-import struct
-import zlib
 from pathlib import Path
-from typing import Dict, List, Any, Tuple, Optional
+from typing import Dict, Any, Optional, Tuple
 
-class SimplePngParser:
-    """纯 Python 标准库简易 PNG 解码器，用于提取宽高与裸 RGBA 像素矩阵"""
-    @staticmethod
-    def read_png_dimensions(path: Path) -> Tuple[int, int]:
-        with open(path, "rb") as f:
-            header = f.read(8)
-            if header != b"\x89PNG\r\n\x1a\n":
-                raise ValueError("Not a valid PNG file")
-            while True:
-                length_bytes = f.read(4)
-                if not length_bytes:
-                    break
-                length = struct.unpack(">I", length_bytes)[0]
-                chunk_type = f.read(4)
-                chunk_data = f.read(length)
-                f.read(4) # CRC
-                if chunk_type == b"IHDR":
-                    width, height = struct.unpack(">II", chunk_data[:8])
-                    return width, height
-        return 0, 0
 
-    @staticmethod
-    def compute_rgb_histogram(path: Path) -> Dict[str, Any]:
-        """计算图像的大致色彩特征直方图"""
-        if not path or not path.exists():
-            return {"byte_mean": 0.0, "dark_ratio": 0.0, "file_size_kb": 0.0, "status": "FILE_NOT_FOUND"}
-        try:
-            with open(path, "rb") as f:
-                data = f.read()
-            # 简单粗粒度采样 IDAT 数据块熵与平均字节分布
-            byte_samples = data[64:-32]
-            if not byte_samples:
-                return {"byte_mean": 0.0, "dark_ratio": 0.0, "file_size_kb": round(len(data) / 1024, 2), "status": "EMPTY_DATA"}
-            avg_val = sum(byte_samples) / len(byte_samples)
-            # 计算暗色与中阶色比重
-            dark_count = sum(1 for b in byte_samples if b < 80)
-            return {
-                "byte_mean": round(avg_val, 2),
-                "dark_ratio": round(dark_count / len(byte_samples), 4),
-                "file_size_kb": round(len(data) / 1024, 2),
-                "status": "SUCCESS"
-            }
-        except Exception as e:
-            return {"byte_mean": 0.0, "dark_ratio": 0.0, "file_size_kb": 0.0, "status": "ERROR", "error": str(e)}
+def _decode_image(path: Path) -> Optional[Dict[str, Any]]:
+    """用 pipeline.png_io.decode_png 解码真实像素；失败返回 None（诚实，不崩）。
+
+    原实现读 PNG 压缩字节算均值/暗色比，与像素内容无可靠相关，不能用于视觉 diff（评审 R1）。
+    """
+    try:
+        from pipeline.png_io import decode_png
+    except Exception:
+        return None
+    if not path or not path.exists():
+        return None
+    try:
+        return decode_png(path.read_bytes())
+    except Exception as e:  # 损坏/不支持格式：诚实返回错误，不静默降级
+        return {"error": str(e)}
+
+
+def read_png_dimensions(path: Path) -> Tuple[int, int]:
+    """返回 (宽, 高)；解码失败返回 (0, 0)。"""
+    dec = _decode_image(path)
+    if dec and "error" not in dec:
+        return int(dec.get("width", 0)), int(dec.get("height", 0))
+    return 0, 0
+
+
+def compute_rgb_histogram(path: Path) -> Dict[str, Any]:
+    """计算真实像素级的色彩特征（平均亮度、暗色像素比、RGB 三通道均值）。
+
+    注意：仍是粗筛层（不区分细粒度构图），语义级美术裁判由 VLM 负责（评审共识 R1/R4）。
+    """
+    if not path or not path.exists():
+        return {"byte_mean": 0.0, "dark_ratio": 0.0, "file_size_kb": 0.0, "status": "FILE_NOT_FOUND"}
+    dec = _decode_image(path)
+    if dec is None:
+        return {"byte_mean": 0.0, "dark_ratio": 0.0, "file_size_kb": 0.0, "status": "FILE_NOT_FOUND"}
+    if "error" in dec:
+        return {"byte_mean": 0.0, "dark_ratio": 0.0,
+                "file_size_kb": round(path.stat().st_size / 1024, 2),
+                "status": "DECODE_ERROR", "error": dec["error"]}
+    pixels = dec.get("pixels", b"")
+    ch = int(dec.get("channels", 4))
+    n = len(pixels)
+    if n == 0 or ch < 3:
+        return {"byte_mean": 0.0, "dark_ratio": 0.0,
+                "file_size_kb": round(path.stat().st_size / 1024, 2), "status": "EMPTY_DATA"}
+    total = 0
+    dark = 0
+    r_total = 0
+    g_total = 0
+    b_total = 0
+    count = 0
+    for i in range(0, n - (ch - 1), ch):
+        r = pixels[i]; g = pixels[i + 1]; b = pixels[i + 2]
+        r_total += r
+        g_total += g
+        b_total += b
+        total += (r + g + b) // 3
+        lum = (299 * r + 587 * g + 114 * b) // 1000
+        if lum < 64:
+            dark += 1
+        count += 1
+    if count == 0:
+        return {"byte_mean": 0.0, "dark_ratio": 0.0, "file_size_kb": 0.0, "status": "EMPTY_DATA"}
+    return {
+        "byte_mean": round(total / count, 2),
+        "r_mean": round(r_total / count, 2),
+        "g_mean": round(g_total / count, 2),
+        "b_mean": round(b_total / count, 2),
+        "dark_ratio": round(dark / count, 4),
+        "file_size_kb": round(path.stat().st_size / 1024, 2),
+        "resolution": f'{dec.get("width")}x{dec.get("height")}',
+        "status": "SUCCESS",
+    }
 
 class VisualDiffEngine:
     def __init__(self, root_dir: Optional[Path] = None):
@@ -84,10 +110,10 @@ class VisualDiffEngine:
                 "layer_checks": []
             }
 
-        w, h = SimplePngParser.read_png_dimensions(live_capture_path)
-        stats = SimplePngParser.compute_rgb_histogram(live_capture_path)
+        w, h = read_png_dimensions(live_capture_path)
+        stats = compute_rgb_histogram(live_capture_path)
         print(f"  [DIMENSIONS] 分辨率: {w}x{h}")
-        print(f"  [HISTOGRAM] 图像特征: 均值={stats['byte_mean']}, 暗色率={stats['dark_ratio']}, 体积={stats['file_size_kb']}KB")
+        print(f"  [HISTOGRAM] 图像特征: 均值={stats['byte_mean']} (R={stats.get('r_mean')}, G={stats.get('g_mean')}, B={stats.get('b_mean')}), 暗色率={stats['dark_ratio']}, 体积={stats['file_size_kb']}KB")
 
         # 检查多层装配不变量 (Layer Invariants)
         # 通过读取渲染源码与资源引用，审查是否存在变异
@@ -113,7 +139,6 @@ class VisualDiffEngine:
             
             # 2. 地图岩壁与峡谷阴影审查
             has_wall_shadow = "wall" in src.lower() and "shadow" in src.lower()
-            # 确认没有每格 8px 地形全屏网格线循环
             no_full_tile_grid = "tile_size" not in src.lower() or "grid_step" not in src.lower()
             layer_checks.append({
                 "component": "Environment_Canyon_Terrain",
@@ -139,28 +164,43 @@ class VisualDiffEngine:
         # 真·基准帧像素/直方图对比（Dream Loop 式目标图锚定闭环）
         golden_diff = self._diff_vs_golden(live_capture_path)
 
-        print("\n  --- 多层装配真理门禁审查明细 ---")
-        for lc in layer_checks:
-            print(f"  【{lc['component']}】")
-            for r in lc["rules"]:
-                flag = "[PASS]" if r["passed"] else "[FAIL]"
-                print(f"    {flag} {r['name']}")
+        if layer_checks:
+            print("\n  --- 多层装配真理门禁审查明细 ---")
+            for lc in layer_checks:
+                print(f"  【{lc['component']}】")
+                for r in lc["rules"]:
+                    flag = "[PASS]" if r["passed"] else "[FAIL]"
+                    print(f"    {flag} {r['name']}")
+        else:
+            print("\n  [LAYER CHECKS] 渲染源文件不存在，跳过源码层静态分析")
 
-        golden_ok = golden_diff.get("status") == "PASS"
-        if golden_diff.get("status") == "SKIPPED":
-            print(f"  [GOLDEN DIFF] SKIPPED (无基准帧: 先 seed_golden_frame 或 generate_target_image 建立)")
+        golden_status = golden_diff.get("status")
+        golden_ok = golden_status == "PASS"
+        if golden_status == "SKIPPED":
+            print(f"  [GOLDEN DIFF] SKIPPED - 未建立视觉基准帧 (knowledge/golden_frames/ 为空)")
+            print(f"     -> 自举基准: python game_agent.py diff --seed <截图路径>  或  python game_agent.py diff --gen-target --prompt <描述>")
         else:
             print(f"  [{'PASS' if golden_ok else 'WARN'}] 基准帧像素/直方图对比: "
-                  f"{golden_diff.get('verdict')} (暗色率Δ={golden_diff.get('dark_ratio_delta')}, "
-                  f"均值Δ={golden_diff.get('byte_mean_delta')})")
+                  f"{golden_diff.get('verdict')} (暗色率delta={golden_diff.get('dark_ratio_delta')}, "
+                  f"均值delta={golden_diff.get('byte_mean_delta')})")
 
-        if not all_passed:
-            verdict = "FAIL"
-        elif not golden_ok:
-            verdict = "WARN"
-        else:
+        # 诚实门禁（评审共识 R5）：无基准帧时视觉真理不可声称已验证，坚决判定 DEGRADED，杜绝虚假 PASS
+        if golden_status == "SKIPPED":
+            verdict = "DEGRADED"
+        elif golden_ok and all_passed:
             verdict = "PASS"
-        print(f"\n  [VISUAL VERDICT] [{verdict}] (视觉真理多层图层 / 基准帧对齐)\n=======================================================")
+        else:
+            verdict = "WARN"
+
+        if verdict == "DEGRADED":
+            print(f"\n=======================================================")
+            print(f"  [!] [VISUAL VERDICT] [DEGRADED] 视觉基准缺失或未见源码图层！")
+            print(f"  说明: 本次仅完成基础尺寸分析，像素级视觉真理未建立比对基准，严禁视为真机渲染通过！")
+            print(f"=======================================================\n")
+        else:
+            print(f"\n=======================================================")
+            print(f"  [VISUAL VERDICT] [{verdict}] (视觉真理多层图层 / 基准帧对齐)")
+            print(f"=======================================================\n")
 
         return {
             "status": verdict,
@@ -171,30 +211,30 @@ class VisualDiffEngine:
             "golden_diff": golden_diff
         }
 
-    # ── 真·视觉闭环新增能力（对应 Dream Loop：目标图锚定 + 截图追近） ──
+    # ── 真·视觉闭环能力（对应 Dream Loop：目标图锚定 + 截图追近） ──
 
-    def _find_golden(self, name: str) -> Optional[Path]:
+    def _find_golden(self, name: str = "target") -> Optional[Path]:
+        """优先匹配指定名称基准，其次匹配任意已置入的基准帧。"""
         for ext in (".png", ".jpg"):
             c = self.golden_dir / f"{name}{ext}"
             if c.exists():
                 return c
-        if name == "default":
-            imgs = sorted(self.golden_dir.glob("*.png")) + sorted(self.golden_dir.glob("*.jpg"))
-            if len(imgs) == 1:
-                return imgs[0]
+        # 兼容回退：如果指定名字没找到，尝试在 golden_dir 查找任何已有的基准图片
+        all_goldens = sorted(self.golden_dir.glob("*.png")) + sorted(self.golden_dir.glob("*.jpg"))
+        if all_goldens:
+            return all_goldens[0]
         return None
 
-    def _diff_vs_golden(self, live_path: Path, name: str = "default") -> Dict[str, Any]:
-        """将实机截图与 golden_dir 同名的基准帧做粗粒度像素/直方图差分。
-        纯标准库无法解码像素，故用 PNG 直方图(均值/暗色率) + 分辨率作为退化判据。"""
+    def _diff_vs_golden(self, live_path: Path, name: str = "target") -> Dict[str, Any]:
+        """将实机截图与 golden_dir 同名的基准帧做真实像素/直方图差分。"""
         golden = self._find_golden(name)
         if not golden:
             return {"layer": "golden_frame_diff", "status": "SKIPPED",
                     "reason": "NO_GOLDEN_FRAME", "verdict": "SKIPPED"}
-        gw, gh = SimplePngParser.read_png_dimensions(golden)
-        lw, lh = SimplePngParser.read_png_dimensions(live_path)
-        g_stat = SimplePngParser.compute_rgb_histogram(golden)
-        l_stat = SimplePngParser.compute_rgb_histogram(live_path)
+        gw, gh = read_png_dimensions(golden)
+        lw, lh = read_png_dimensions(live_path)
+        g_stat = compute_rgb_histogram(golden)
+        l_stat = compute_rgb_histogram(live_path)
         res_match = (gw == lw and gh == lh)
         dark_delta = abs(g_stat.get("dark_ratio", 0.0) - l_stat.get("dark_ratio", 0.0))
         mean_delta = abs(g_stat.get("byte_mean", 0.0) - l_stat.get("byte_mean", 0.0))
@@ -211,8 +251,8 @@ class VisualDiffEngine:
             "verdict": "MATCH" if pixel_ok else "VISUAL_DRIFT",
         }
 
-    def seed_golden_frame(self, live_path: Path, name: str = "default") -> Dict[str, Any]:
-        """把首轮实机截图固化为基准帧（自举），后续迭代以此追近。"""
+    def seed_golden_frame(self, live_path: Path, name: str = "target") -> Dict[str, Any]:
+        """把实机截图固化为基准帧（自举），后续迭代以此追近。"""
         if not live_path.exists():
             return {"status": "FAIL", "error": f"live capture 不存在: {live_path}"}
         dst = self.golden_dir / f"{name}.png"

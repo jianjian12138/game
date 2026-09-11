@@ -1,14 +1,49 @@
 {
-  "version": "1.0.0",
-  "note": "结构化玩家口味种子语料（人工整理代表性样本，非实时爬取）。每条含 signal(avoid/prefer/pacing)、constraint、source。外部实时采集见 pipeline/taste_signal.py:fetch_external（默认 NEEDS_NETWORK，不伪装爬取）。",
+  "version": "1.1.0",
+  "note": "结构化玩家口味种子语料（人工整理代表性样本，非实时爬取）。每条含 signal(avoid/prefer/pacing)、category(gameplay/visual/economy)、genre_segment、constraint、source。外部实时采集见 pipeline/taste_signal.py:fetch_external（默认 NEEDS_NETWORK，不伪装爬取）。",
+  "avoid_patterns": [
+    "经营到后期只剩重复操作（纯挂机/数值堆砌），缺少持续向下的新目标",
+    "强制广告打断核心循环、逼氪感知强",
+    "数值膨胀导致后期数值崩坏、平衡失控",
+    "无效冗长的新手指引与不可跳过的长动画",
+    "模糊不清的判定范围与无前摇秒杀"
+  ],
+  "prefer_patterns": [
+    "自由布置+慢慢经营的掌控感与渐进解锁，是玩家上头点",
+    "失败可逆、随时重试、低挫败感的爽快循环（适用于休闲轻度品类）",
+    "高风险高回报、硬核博弈挫败补偿与清晰死因复盘（适用于硬核动作/魂系）",
+    "有可见的成长反馈（升级、外观、排行）而非纯数字堆叠",
+    "精准爽快的打击反馈与微操收益"
+  ],
+  "visual_constraints": {
+    "hud_safe_zone": "HUD 视平线与按键保持边缘对齐，杜绝核心战斗区域信息遮挡",
+    "contrast_indicators": "技能前摇与弹道具备高对比度警示指示圈，危险判定与 Hitbox 像素级清晰",
+    "screen_shake_layering": "伤害浮字与顿帧层级分明，关键暴击具备明显的视觉层级放大与非线性创伤震屏"
+  },
+  "taste_profiles": {
+    "hardcore": {
+      "focus": "操作深度与挫败复盘",
+      "avoid": ["无死因回溯", "无脑堆怪", "输入延迟"],
+      "prefer": ["高风险高回报", "帧级判定清晰", "操作响应即时"]
+    },
+    "casual": {
+      "focus": "低挫败感与即时正反馈",
+      "avoid": ["严厉惩罚", "单局过长", "高挫败感"],
+      "prefer": ["即时正反馈", "失败成本低", "5-10分钟快节奏"]
+    }
+  },
   "entries": [
-    {"signal": "avoid", "constraint": "经营到后期只剩重复操作（纯挂机/数值堆砌），缺少持续向下的新目标", "source": "TapTap《心动小镇》差评区"},
-    {"signal": "prefer", "constraint": "自由布置+慢慢经营的掌控感与渐进解锁，是玩家上头点", "source": "TapTap《心动小镇》好评区"},
-    {"signal": "avoid", "constraint": "强制广告打断核心循环、逼氪感知强", "source": "Steam 中文评测区"},
-    {"signal": "prefer", "constraint": "失败可逆、随时重试、低挫败感的爽快循环", "source": "玩家调研汇总"},
-    {"signal": "pacing", "constraint": "前 30 秒给出正反馈，首局即玩，后续用轻量养成拉长生命周期", "source": "手游留存经验"},
-    {"signal": "avoid", "constraint": "数值膨胀导致后期数值崩坏、平衡失控", "source": "Roguelike 评测区"},
-    {"signal": "prefer", "constraint": "有可见的成长反馈（升级、外观、排行）而非纯数字堆叠", "source": "玩家调研汇总"},
-    {"signal": "pacing", "constraint": "单次会话目标明确、5-10 分钟一局，适合碎片时间", "source": "休闲游戏评测区"}
+    {"signal": "avoid", "category": "economy", "genre_segment": "all", "constraint": "经营到后期只剩重复操作（纯挂机/数值堆砌），缺少持续向下的新目标", "source": "TapTap 玩家社区高频痛点"},
+    {"signal": "prefer", "category": "gameplay", "genre_segment": "all", "constraint": "自由布置+慢慢经营的掌控感与渐进解锁，是玩家上头点", "source": "TapTap 社区好评提炼"},
+    {"signal": "avoid", "category": "economy", "genre_segment": "all", "constraint": "强制广告打断核心循环、逼氪感知强", "source": "Steam 中文评测区"},
+    {"signal": "prefer", "category": "gameplay", "genre_segment": "casual", "constraint": "失败可逆、随时重试、低挫败感的爽快循环（适用于休闲轻度品类）", "source": "玩家调研汇总"},
+    {"signal": "prefer", "category": "gameplay", "genre_segment": "hardcore", "constraint": "高风险高回报、硬核博弈挫败补偿与清晰死因复盘（适用于硬核动作/魂系）", "source": "魂系与硬核动作玩家社区"},
+    {"signal": "pacing", "category": "gameplay", "genre_segment": "all", "constraint": "前 30 秒给出正反馈，首局即玩，后续用轻量养成拉长生命周期", "source": "手游留存经验"},
+    {"signal": "avoid", "category": "economy", "genre_segment": "roguelike", "constraint": "数值膨胀导致后期数值崩坏、平衡失控", "source": "Roguelike 评测区"},
+    {"signal": "prefer", "category": "gameplay", "genre_segment": "all", "constraint": "有可见的成长反馈（升级、外观、排行）而非纯数字堆叠", "source": "玩家调研汇总"},
+    {"signal": "pacing", "category": "gameplay", "genre_segment": "casual", "constraint": "单次会话目标明确、5-10 分钟一局，适合碎片时间", "source": "休闲游戏评测区"},
+    {"signal": "prefer", "category": "visual", "genre_segment": "all", "constraint": "技能前摇与弹道具备高对比度警示指示圈，危险判定与 Hitbox 像素级清晰", "source": "动作/弹幕游戏 UX 规范"},
+    {"signal": "prefer", "category": "visual", "genre_segment": "all", "constraint": "HUD 视平线与按键保持边缘对齐，杜绝核心战斗区域信息遮挡", "source": "移动端与跨端 UI/UX 工业标准"},
+    {"signal": "prefer", "category": "visual", "genre_segment": "all", "constraint": "伤害浮字与顿帧层级分明，关键暴击具备明显的视觉层级放大与创伤震屏", "source": "打击感调校黄金法则"}
   ]
 }

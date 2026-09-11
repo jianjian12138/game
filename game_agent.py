@@ -180,10 +180,27 @@ def cmd_drive(args):
 
 def cmd_diff(args):
     from pipeline.visual_diff_engine import VisualDiffEngine
-    print("[DIFF] 启动像素级视觉真理多层图层审计...")
     engine = VisualDiffEngine(ROOT)
-    cap_path = Path(args.capture) if args.capture else Path("output/mindustry_rust_full/mindustry_rust_live.png")
-    engine.audit_capture_vs_ground_truth(cap_path)
+    name = getattr(args, "name", "target") or "target"
+    if getattr(args, "seed", None):
+        print(f"[DIFF] 正在将实机截图自举为基准帧: {args.seed} -> {name}...")
+        r = engine.seed_golden_frame(Path(args.seed), name=name)
+        print(f"  [RESULT] {r}")
+        return 0
+    if getattr(args, "generate", False) or getattr(args, "gen_target", False):
+        prompt = getattr(args, "prompt", "") or "gameplay screenshot"
+        print(f"[DIFF] 正在生成目标参考基准图 (prompt='{prompt}')...")
+        r = engine.generate_target_image(prompt, name=name, style=getattr(args, "style", None))
+        print(f"  [RESULT] {r}")
+        return 0
+
+    print("[DIFF] 启动像素级视觉真理多层图层审计...")
+    cap_path = Path(args.capture) if getattr(args, "capture", None) else Path("output/mindustry_rust_full/mindustry_rust_live.png")
+    res = engine.audit_capture_vs_ground_truth(cap_path)
+    if getattr(args, "strict", False) and res.get("verdict") == "DEGRADED":
+        return 4
+    return 0
+
 
 def cmd_taste(args):
     from pipeline.taste_signal import TasteSignal
@@ -204,6 +221,11 @@ def cmd_taste(args):
         print("\n--- 注入后的提示词 ---\n" + injected)
     else:
         print(json.dumps(cons, ensure_ascii=False, indent=2))
+
+
+def cmd_vision(args):
+    """cmd_diff 的完整别名命令，对应 Dream Loop 视觉闭环。"""
+    return cmd_diff(args)
 
 def cmd_reverse(args):
     from pipeline.ground_truth_reverser import GroundTruthReverser
@@ -2026,7 +2048,9 @@ COMMAND_TABLE = {
     "asset-verify": cmd_asset_verify,
     "asset-audio": cmd_asset_audio, "asset-audio-verify": cmd_asset_audio_verify,
     "playtest": cmd_playtest,
+    "diff": cmd_diff,
     "taste": cmd_taste,
+    "vision": cmd_vision,
     "list-parts": cmd_list_parts,
     "assemble": cmd_assemble,
     "templates": cmd_templates,
@@ -2091,14 +2115,28 @@ def main():
     p_drive.add_argument("--script", type=str, default="0:press:right; 30:release:right", help="按键脚本 (如 tick:cmd:arg)")
     p_drive.add_argument("--ticks", type=int, default=60, help="运行模拟 Tick 数")
 
-    p_diff = sub.add_parser("diff", help="执行像素级视觉真理与多层图层装配审查")
+    p_diff = sub.add_parser("diff", help="执行像素级视觉真理与多层图层装配审查 (支持 --seed / --gen-target 自举基准)")
     p_diff.add_argument("--capture", type=str, default="", help="待测实机截图路径")
+    p_diff.add_argument("--seed", type=str, default=None, help="把指定截图固化为基准帧(knowledge/golden_frames/<name>.png)")
+    p_diff.add_argument("--gen-target", dest="gen_target", action="store_true", help="使用生图后端生成目标参考基准图")
+    p_diff.add_argument("--prompt", type=str, default="", help="生成基准图时的文生图提示词")
+    p_diff.add_argument("--name", type=str, default="target", help="基准帧名称(默认 target)")
+    p_diff.add_argument("--strict", action="store_true", help="严格门禁模式(DEGRADED 降级时返回退出码 4 阻断流水线)")
 
     p_taste = sub.add_parser("taste", help="玩家口味语料->设计约束信号提取(对应《把AI游戏流程录成Skill》)")
     p_taste.add_argument("--corpus", type=str, default="", help="玩家口味语料 JSON 路径(缺省 knowledge/player_taste_spec.json)")
     p_taste.add_argument("--attach", type=str, default=None, help="把约束注入到该提示词并回显")
     p_taste.add_argument("--fetch", action="store_true", help="尝试外部实时采集(默认 NEEDS_NETWORK，不伪装爬取)")
     p_taste.add_argument("--platform", type=str, default="taptap", help="外部采集平台(taptap/steam)")
+
+    p_vision = sub.add_parser("vision", help="视觉闭环: seed/generate 基准帧 + diff 追近(对应 Dream Loop)")
+    p_vision.add_argument("--seed", type=str, default=None, help="把指定截图固化为基准帧(golden_frames/<name>.png)")
+    p_vision.add_argument("--generate", action="store_true", help="用文生图生成目标参考图(无后端时 NEEDS_RUNTIME_TOOL)")
+    p_vision.add_argument("--prompt", type=str, default="", help="--generate 时的文生图提示词")
+    p_vision.add_argument("--style", type=str, default=None, help="--generate 时的风格锁定(传 StyleBible 标识)")
+    p_vision.add_argument("--diff", action="store_true", help="执行像素级视觉真理审查(默认比对 target 基准帧)")
+    p_vision.add_argument("--capture", type=str, default="", help="--diff 时的实机截图路径")
+    p_vision.add_argument("--name", type=str, default="target", help="基准帧名(默认 target，须与 generate/seed 一致)")
 
     p_reverse = sub.add_parser("reverse", help="执行官方参考源码逆向与时钟常量冻结")
     p_reverse.add_argument("--source", type=str, default="", help="参考源码目录")
