@@ -207,9 +207,10 @@ MCP_TOOLS = [
             "type": "object",
             "properties": {
                 "title": {"type": "string", "description": "游戏标题"},
-                "platform": {"type": "string", "enum": ["all", "wechat", "steam", "pwa"], "description": "目标平台 (默认 all)"}
+                "platform": {"type": "string", "enum": ["all", "wechat", "steam", "pwa"], "description": "目标平台 (默认 all)"},
+                "run_id": {"type": "string", "description": "必须挂接到某次已通过门禁的运行，否则拒绝打包分发"}
             },
-            "required": ["title"]
+            "required": ["title", "run_id"]
         }
     },
     {
@@ -557,6 +558,11 @@ def handle_rpc_request(req: dict) -> dict:
             return {"jsonrpc": "2.0", "id": req_id, "result": {"content": [{"type": "text", "text": json.dumps(res, ensure_ascii=False, indent=2)}]}}
 
         elif tool_name == "package_for_distribution":
+            from core.run_service import run_service
+            blocked = run_service.check_release_gate(tool_name, args.get("run_id", ""))
+            if blocked:
+                return {"jsonrpc": "2.0", "id": req_id,
+                        "error": {"code": -32001, "message": f"[BLOCKED] {blocked}"}}
             from pipeline.commercial_distribution_hub import CommercialDistributionHub
             title = args.get("title", "未命名商业游戏")
             platform = args.get("platform", "all")

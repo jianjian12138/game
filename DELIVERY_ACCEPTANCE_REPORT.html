@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Game-Agent 最终交付能力审计与遗漏清单</title>
+<style>
+:root{--bg:#f5f7fb;--panel:#fff;--line:#d8e0ea;--text:#172033;--muted:#5f6b7a;--ok:#16794c;--warn:#9a6500;--bad:#b42318;--accent:#1769aa;--code:#eef3f8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:"Microsoft YaHei",sans-serif;line-height:1.7;font-size:15px}.wrap{max-width:1120px;margin:auto;padding:42px 28px 72px}h1{font-size:30px;margin:0 0 6px}.sub{color:var(--muted);margin-bottom:28px}h2{font-size:21px;border-bottom:1px solid var(--line);padding-bottom:8px;margin:36px 0 14px}h3{font-size:17px;color:var(--accent);margin:24px 0 8px}.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin:14px 0}table{width:100%;border-collapse:collapse;background:var(--panel)}th,td{text-align:left;vertical-align:top;padding:9px 11px;border-bottom:1px solid var(--line)}th{background:#edf2f7;color:var(--muted)}code{background:var(--code);padding:1px 5px;border-radius:4px;color:#0b5f96}pre{background:#172033;color:#eef5ff;border-radius:8px;padding:14px;overflow:auto}.tag{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:700}.ok{background:#dff5e9;color:var(--ok)}.warn{background:#fff0c7;color:var(--warn)}.bad{background:#fde5e3;color:var(--bad)}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}.stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:15px}.n{font-size:25px;font-weight:700;color:var(--accent)}.l{color:var(--muted);font-size:13px}.foot{margin-top:44px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px;font-size:13px}
+</style>
+</head>
+<body><div class="wrap">
+<h1>Game-Agent 最终交付能力审计与遗漏清单</h1>
+<div class="sub">审计日期：2026-09-10 ｜ 仓库：D:\jianjian12138\game ｜ 口径：只承认代码、测试和真实运行证据</div>
+
+<div class="grid">
+<div class="stat"><div class="n">W1–W10</div><div class="l">升级主线全部完成</div></div>
+<div class="stat"><div class="n">233 OK</div><div class="l">默认全量单测，另 9 项环境守护跳过</div></div>
+<div class="stat"><div class="n">28/28</div><div class="l">工业标准套件通过</div></div>
+<div class="stat"><div class="n">100/100</div><div class="l">8 领域专家验收评审</div></div>
+<div class="stat"><div class="n">G0–G6</div><div class="l">预览候选门禁真实通过</div></div>
+</div>
+
+<h2>一、最终结论</h2>
+<div class="card">
+<p><strong>结论：</strong>本仓库已经达到“可交付的 Web 主线游戏 Agent 工程版本”标准：能够接收一句话意图，生成规范，执行真实 DAG，装配可玩的 Web 垂直切片，接入 W5 AIGC 美术和 W7 音频，使用真实 Edge 试玩，写入证据/审计/项目记忆，生成带元数据、素材、合规清单和 provenance 的预览包。</p>
+<p><strong>不能宣称：</strong>它还不是“任何品类、无需人工、直接商店上架的完整商业游戏团队”。AI 美术需要审美和版权复核；生产上架需要人审、版号和渠道凭据；支付/广告/联机需要外部沙箱；114 技能中仍有 DCC/GPU 环境缺口，C 类最近一次批量运行也不是 24/24 稳定通过。</p>
+</div>
+
+<h2>二、能力矩阵</h2>
+<table>
+<tr><th style="width:20%">能力域</th><th style="width:15%">状态</th><th>代码与证据</th><th>交付边界</th></tr>
+<tr><td>Agent Runtime / 专家角色</td><td><span class="tag ok">已具备</span></td><td><code>core/role_cards*.py</code>；CLI 实测 82/82，LEAD 8 / SPECIALIST 20 / ADVISOR 54。</td><td>角色卡已全量；没有 LLM 凭据时仍必须返回 <code>NEEDS_LLM_CREDENTIALS</code>，不冒充专家产出。</td></tr>
+<tr><td>114 技能库</td><td><span class="tag warn">分层可用</span></td><td>A=25 真注册；B=62 真跑通；3 项 DCC/GPU 返回 <code>NEEDS_RUNTIME_TOOL</code>；C=24 历史通过且审计 stale=0/missing=0。</td><td>C 最近批量为 17/24，不能按历史 24/24 宣称当前稳定；B 的 3 项仍需 Blender/GPU 烘焙环境。</td></tr>
+<tr><td>契约 / 工件 / 审计</td><td><span class="tag ok">已具备</span></td><td><code>core/contracts.py</code>、<code>artifact_store.py</code>、<code>audit_log.py</code>、<code>run_service.py</code>。</td><td>内容寻址、证据链、审计和篡改检测已纳入测试。</td></tr>
+<tr><td>DAG 自主编排</td><td><span class="tag ok">已具备</span></td><td><code>core/orchestrator.py</code> + <code>pipeline/autonomous_pipeline.py</code>；装配后试玩与打包同层并行；支持断点续跑、失败策略、预算和三处停。</td><td>当前自主出货主线为 Web 垂直切片，不等于完整大型项目自动制作。</td></tr>
+<tr><td>2D AIGC 美术</td><td><span class="tag ok">已具备</span></td><td>W5 ImageGenAdapter + ComfyUI/SDXL 实测；PNG 随包；provenance 包含模型、endpoint、seed、prompt、SHA256；独立复算 HASH_MATCH=True。</td><td>风格语义、版权和水印仍需人工/VLM；AIGC 不可用时程序化占位会如实标注。</td></tr>
+<tr><td>3D / PBR / glTF / 骨骼 / LOD</td><td><span class="tag ok">工程能力具备</span></td><td><code>pipeline/textured_3d_asset.py</code>、gltf/PBR 验证器、Godot 导入器；W6 真实 Godot 4.7.2 + ComfyUI 守护测试通过。</td><td>3D 内容质量仍取决于资产规格和人工审美；本次自主出货默认仍是 Web 2D 主线。</td></tr>
+<tr><td>音频</td><td><span class="tag warn">程序化可用</span></td><td>W7 AudioFactory 生成并 QA WAV；自主包真实带 4 个 WAV。</td><td>不是完整作曲/配音生产系统；音乐监制、配音、版权仍需人或外部后端。</td></tr>
+<tr><td>真实试玩 / QA</td><td><span class="tag ok">已具备</span></td><td>W8 真 Edge、W9 八切片、W10 真浏览器守护均通过；缺浏览器 fail-closed。</td><td>自动试玩证明运行契约和指定场景，不替代长期玩家测试、可玩性研究和留存验证。</td></tr>
+<tr><td>发布门禁 / 预览包</td><td><span class="tag ok">已具备</span></td><td>G0–G6、ReleaseManifest、release-drill 6/6、审计链和预览候选真实生成。</td><td>G7 生产发布必须人工审批；没有远程渠道凭据时不会宣称已上架。</td></tr>
+<tr><td>第三方渠道 / 在线服务</td><td><span class="tag warn">接口与门禁具备</span></td><td>WeChat/Steam/PWA/itch 打包契约、submit dry-run、支付广告联机沙箱和凭据缺失状态已实现。</td><td>未完成真实商店提交、线上支付、广告、联机服务部署；这些需要外部账号、官方上传器和服务环境。</td></tr>
+</table>
+
+<h2>三、最终实测证据</h2>
+<div class="card"><pre>python -m unittest discover -s tests -p "test_*.py"
+Ran 233 tests in 131.346s
+OK (skipped=9)
+
+python pipeline/test_all_standards.py
+Ran 28 tests in 8.606s
+OK
+28 项工业门禁全部 PASS
+
+python expert_review.py
+FINAL ACCEPTANCE DECISION: UNANIMOUSLY APPROVED
+Overall Panel Score: 100.0 / 100
+
+python game_agent.py release-drill
+发布门禁故障注入演练: PASS (6/6)
+
+W6_REAL_GODOT=1 W6_REAL_COMFYUI=1 ... test_w6_3d_assets
+Ran 10 tests ... OK
+
+W8_REAL_BROWSER=1 W9_REAL_BROWSER=1 W10_REAL_BROWSER=1 ...
+Ran 32 tests ... OK (skipped=1)</pre></div>
+
+<h2>四、当前遗漏与风险</h2>
+<table>
+<tr><th style="width:22%">遗漏</th><th style="width:15%">严重度</th><th>处理结论</th></tr>
+<tr><td>生产商店真实上架</td><td><span class="tag bad">外部阻塞</span></td><td>不是代码缺陷。需要商店账号、官方上传器、素材、隐私政策、年龄分级和版号/备案材料。</td></tr>
+<tr><td>支付/广告/联机线上环境</td><td><span class="tag bad">外部阻塞</span></td><td>当前只保证沙箱接口和 fail-closed 门禁；需要真实服务地址、凭据和身份自证。</td></tr>
+<tr><td>内容质量闭环</td><td><span class="tag warn">需要人工</span></td><td>AI 图和程序化音频已经真实生成，但风格、版权、听感、长线可玩性不能由结构化 QA 代替。</td></tr>
+<tr><td>C 类技能当前稳定性</td><td><span class="tag warn">波动</span></td><td>历史 24/24、最近 17/24；代码已分开 ever_passed/last_ok，后续应定期复跑，而不是修改口径。</td></tr>
+<tr><td>B 类 DCC/GPU 三项</td><td><span class="tag warn">环境缺口</span></td><td>高模雕刻、重拓扑/UV、PBR 烘焙仍如实标 <code>NEEDS_RUNTIME_TOOL</code>；不影响 Web 主线预览包。</td></tr>
+<tr><td>完整产品化运营</td><td><span class="tag warn">范围外</span></td><td>埋点、A/B、留存分析模块存在，但本次没有真实玩家群体和线上数据，不能宣称运营闭环已验证。</td></tr>
+</table>
+
+<h2>五、代码清理结果</h2>
+<div class="card">
+<ul>
+<li>删除确认无引用的孤儿文件：<code>core/golden_template_registry.py</code>。</li>
+<li>保留 <code>game_cli.py</code> / <code>agy_game_cli.py</code>：它们被兼容入口、适配器、README 和 smoke test 引用，不属于安全可删冗余。</li>
+<li>保留 <code>pipeline/test_engine_subsystems.py</code> / <code>pipeline/test_industrial_engines.py</code>：它们覆盖独立底层引擎测试，并被 pyproject 的测试发现规则收集，不是重复代码文件。</li>
+<li>清理 Python 编译缓存 <code>__pycache__/*.pyc</code>；生成物继续由 <code>output/</code> 忽略规则隔离。</li>
+<li>修正最终验收中暴露的环境口径问题：<code>EnvironmentInspector</code> 现在识别 <code>GODOT_PATH</code> 和本机 D:\Godot 绿色安装；<code>GodotRuntimeAdapter(godot_executable="")</code> 明确表示禁用引擎，避免真实安装污染离线 honesty 测试；CI 改为 <code>pip install -e .</code>，不再引用仓库缺失的 <code>requirements.txt</code>。</li>
+<li><code>config/llm_endpoints.json</code> 已被 gitignore，交付版不得提交其中的密钥；正式交付前仍建议撤销旧密钥并轮换。</li>
+</ul>
+</div>
+
+<h2>六、交付标准判定</h2>
+<table>
+<tr><th>标准</th><th>判定</th><th>说明</th></tr>
+<tr><td>工程版本可安装/可运行</td><td><span class="tag ok">通过</span></td><td>Python/CLI/HTTP/MCP 入口、依赖清单、Web 工具链和回归均可运行。</td></tr>
+<tr><td>一句话到可玩的预览包</td><td><span class="tag ok">通过</span></td><td>自主 DAG、真实试玩、AIGC/程序化资产、合规清单、项目记忆和 G0–G6 证据齐全。</td></tr>
+<tr><td>不粉饰运行能力</td><td><span class="tag ok">通过</span></td><td>LLM、浏览器、AIGC、DCC、渠道和在线凭据均有 NEEDS_* / PAUSED / 未达成状态。</td></tr>
+<tr><td>直接生产商用游戏并上架</td><td><span class="tag warn">不宣称</span></td><td>还需要内容质量、人审、真实玩家验证、线上服务、商店账号和行政许可。</td></tr>
+</table>
+
+<div class="foot">最终口径：本版本可作为 Web 主线游戏 Agent 的工程交付版和预览包生产版；不可作为已完成商店上架、已完成线上运营或无需人工审美/合规审批的商业成品交付。报告依据 2026-09-10 实测与仓库代码现状生成。</div>
+</div></body></html>

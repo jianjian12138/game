@@ -9,6 +9,10 @@ import sys
 import os
 import json
 import argparse
+
+from core.run_service import run_service
+from core.release_service import ReleaseBlockedError
+from core.security_guard import SecurityGuardError
 from pathlib import Path
 
 # Windows UTF-8 终端保护
@@ -350,13 +354,352 @@ def cmd_asset3d(args):
     from pipeline.asset_3d_bridge import Asset3DBridge
     asset_type = getattr(args, "type", "turret")
     fmt = getattr(args, "format", "gltf")
-    out_dir = Path(args.output) if getattr(args, "output", None) else ROOT / "output" / "assets" / "3d"
+    out_dir = Path(args.output) if getattr(args, "output", None) else None
+    textured = bool(getattr(args, "textured", False))
+
+    if textured:
+        backend = getattr(args, "backend", None)
+        seed = getattr(args, "seed", None)
+        verify_godot = bool(getattr(args, "verify_godot", False))
+        style = None
+        import json as _json
+        from pathlib import Path as _P
+        from pipeline.style_bible import StyleBible
+        spath = getattr(args, "style", None) or "evidence/style_bible.json"
+        if _P(spath).exists():
+            style = StyleBible.from_dict(_json.load(open(spath, encoding="utf-8")))
+            if not style.locked:
+                style.lock()
+        print(f"[ASSET 3D] 启动贴图 PBR 资产生成: 类型={asset_type}, 后端={backend or 'auto'}, 真机导入={verify_godot}...")
+        rec = Asset3DBridge.build_textured_asset(
+            asset_type=asset_type,
+            output_dir=str(out_dir) if out_dir else None,
+            backend=backend, style=style, seed=seed, verify_godot=verify_godot)
+        print(f"  [3D BUILT] 资产名称: {rec['asset_name']}")
+        print(f"  [GEOMETRY] 顶点数: {rec['vertex_count']} | 三角面: {rec['triangle_count']}")
+        print(f"  [ALBEDO]  AI生成={rec['is_ai_albedo']} ｜ 程序化占位={rec['is_procedural_albedo']} ｜ 后端={rec['albedo_backend']}")
+        if rec.get("albedo_needs_runtime_tool"):
+            print(f"  [HONEST] 无可用 AIGC 后端，albedo 为程序化占位（needs_runtime_tool={rec['albedo_needs_runtime_tool']}）")
+        print(f"  [TEXTURES] {list(rec['texture_paths'].keys())}")
+        print(f"  [GLTF] {rec['gltf_path']}")
+        print(f"  [PROV] {rec['provenance_path']}")
+        if rec.get("warnings"):
+            for w in rec["warnings"]:
+                print(f"  ⚠ {w}")
+        if verify_godot:
+            g = rec.get("godot", {})
+            if rec.get("m4_achieved"):
+                print(f"  [M4] Godot 真机导入成功（{g.get('godot_path')}），产物: {g.get('imported_files')}")
+            else:
+                print(f"  [M4] 真机导入未达成: {g.get('error')} ｜ needs_runtime_tool={rec.get('needs_runtime_tool')}")
+        return 0 if rec.get("status") == "success" else 1
+
+    # 旧路径（M3 无贴图几何导出，保持向后兼容）
     print(f"[ASSET 3D] 启动工业级 3D 资产生成: 类型={asset_type}, 目标格式={fmt}...")
     res = Asset3DBridge.build_procedural_asset(asset_type, output_dir=out_dir, export_format=fmt)
     print(f"  [3D BUILT] 资产名称: {res['asset_name']}")
     print(f"  [GEOMETRY] 顶点数: {res['vertices_count']} | 三角面: {res['triangles_count']}")
     print(f"  [FILES] glTF: {res['gltf_path']}")
     print(f"  [FILES] OBJ:  {res['obj_path']}")
+
+def cmd_asset_audio(args):
+    from pipeline.audio_factory import AudioFactory, AudioSpec
+    from pipeline import audio_synth
+    kind = getattr(args, "kind", "laser")
+    name = getattr(args, "name", "") or (
+        f"sfx_{kind}" if kind in audio_synth.SFX_KINDS else f"bgm_{kind}")
+    out_dir = (Path(args.output).as_posix() if getattr(args, "output", None)
+               else str(ROOT / "output" / "assets" / "audio"))
+    duration = float(getattr(args, "duration", 1.0))
+    sr = int(getattr(args, "sample_rate", 44100))
+    theme = getattr(args, "theme", "dorian")
+    bpm = int(getattr(args, "bpm", 120))
+    backend = getattr(args, "backend", None)
+    seed = getattr(args, "seed", None)
+
+    is_bgm = kind not in audio_synth.SFX_KINDS
+    print(f"[AUDIO ASSET] 启动 W7 音频资产生成: kind={kind} ｜ 类别={'BGM' if is_bgm else 'SFX'} "
+          f"｜ 后端={backend or 'auto'} ｜ 采样率={sr}")
+    spec = AudioSpec(kind=kind, name=name, sample_rate=sr, duration=duration,
+                    theme=theme, bpm=bpm)
+    rec = AudioFactory().generate(spec, backend=backend, seed=seed)
+    saved = AudioFactory().save(rec, out_dir) if out_dir else None
+
+    print(f"  [AUDIO BUILT] 资产ID: {rec.asset_id}")
+    print(f"  [GEN] AI生成={rec.is_ai_generated} ｜ 程序化合成={rec.is_procedural_synth} ｜ 后端={rec.backend}")
+    if rec.needs_runtime_tool:
+        print(f"  [HONEST] 无可用 AI 音频后端（{rec.needs_runtime_tool}），本音频为程序化合成，非 AI 音乐")
+    print(f"  [META] 采样率={rec.sample_rate} 声道={rec.channels} 时长={rec.duration:.3f}s "
+          f"峰值={rec.peak:.3f} RMS={rec.rms:.5f}")
+    print(f"  [QA] 通过={rec.qa.passed} ｜ 音色语义需人耳/VLM: {rec.qa.needs_vlm}")
+    if saved:
+        print(f"  [FILES] WAV : {saved['wav']}")
+        print(f"  [FILES] JSON: {saved['json']}")
+    if rec.qa.details:
+        for k, v in rec.qa.details.items():
+            print(f"    · {k}: {v}")
+    return 0 if (rec.qa.passed and not rec.provenance.get("is_silent")) else 1
+
+
+def cmd_asset_audio_verify(args):
+    from pipeline.audio_factory import AudioQA, AudioSpec
+    from pipeline import audio_synth
+    file_path = getattr(args, "file", "")
+    if not file_path:
+        print("[AUDIO VERIFY] 错误：--file 必填（待校验 WAV 路径）")
+        return 2
+    kind = getattr(args, "kind", "") or ""
+    spec = None
+    if kind:
+        spec = AudioSpec(kind=kind, name=Path(file_path).stem)
+    print(f"[AUDIO VERIFY] 校验既有 WAV: {file_path} ...")
+    rep = AudioQA.verify_file(file_path, spec)
+    print(f"  [VERDICT] 通过={rep['passed']}")
+    print(f"  [META] 采样率={rep['sample_rate']} 声道={rep['channels']} "
+          f"时长={rep['duration']}s 峰值={rep['peak']} RMS={rep['rms']} 静音={rep['is_silent']}")
+    print(f"  [HASH] {rep.get('content_hash', '')}")
+    if rep.get("qa"):
+        for k, v in rep["qa"].get("details", {}).items():
+            print(f"    · {k}: {v}")
+    if rep.get("error"):
+        print(f"  [ERROR] {rep['error']}")
+    return 0 if rep["passed"] else 1
+
+
+def cmd_playtest(args):
+    """W8 自动试玩闭环 CLI：复用 PlaytestEngine 对真实游戏做多轮自动化试玩。
+
+    诚实门禁（13.2）：
+      - 无真实浏览器自动化驱动时，引擎返回 NEEDS_RUNTIME_TOOL，CLI 如实转译（退出码 4），
+        绝不把静态解析 / 文件存在粉饰为通过。
+      - 远程 URL 当前需先镜像为本地 HTML，本引擎加载本地文件，故显式拒绝并退出码 3。
+    """
+    from core.runtime_adapter import RuntimeStatus
+    from pipeline.playtest_engine import PlaytestEngine
+
+    target = getattr(args, "target", "") or getattr(args, "url", "")
+    if not target:
+        print("[PLAYTEST] 错误：--target（本地 HTML 试玩目标）必填")
+        return 2
+    if target.startswith("http://") or target.startswith("https://"):
+        print("[PLAYTEST] 远程 URL 当前需先镜像为本地 HTML 再试玩（本引擎加载本地文件）。")
+        return 3
+
+    out_dir = getattr(args, "out", "") or str(ROOT / "output" / "playtest")
+    episodes = int(getattr(args, "episodes", 3))
+    ticks = int(getattr(args, "ticks", 20))
+    play_seconds = ticks * 0.15  # 每个输入步 ≈ 150ms（_STEP_DOWN_MS + _STEP_GAP_MS）
+    seed = int(getattr(args, "seed", 0))
+    headless = bool(getattr(args, "headless", True))
+
+    print(f"[PLAYTEST] 启动 W8 自动试玩闭环: 目标={target} ｜ episodes={episodes} "
+          f"｜ ticks={ticks}（≈{play_seconds:.1f}s）｜ seed={seed} ｜ headless={headless}")
+    eng = PlaytestEngine(evidence_dir=out_dir, seed=seed)
+    res = eng.run(target, episodes=episodes, play_seconds=play_seconds,
+                  seed=seed, policy="auto", headless=headless)
+
+    print(f"  [VERDICT] {res.status}")
+    print(f"  [EVIDENCE] 到达playing={res.episodes_reached_playing}/{res.episodes_run} "
+          f"｜ 完整闭环={res.full_loops_completed} ｜ 总帧={res.total_frames}")
+    print(f"  [TRUTH] 像素渲染={res.pixel_rendered_count}/{res.episodes_run} "
+          f"｜ 输入响应={res.input_reflected_count}/{res.episodes_run}（防伪：帧数涨≠画面在动）")
+    print(f"  [SUPPORT] game_over={res.game_over_supported} restart={res.restart_supported}")
+    print(f"  [ERRORS] page={res.page_error_count} console={res.console_error_count} "
+          f"net={res.network_failure_count}")
+    print(f"  [HASH] {res.target_hash}")
+    print(f"  [PACK] {res.evidence_path}")
+    if res.needs_runtime_tool:
+        print(f"  [HONEST] 无真实浏览器自动化驱动（{res.needs_runtime_tool}）：诚实返回 NEEDS_RUNTIME_TOOL，"
+              f"绝不把静态解析粉饰为通过")
+    if res.error:
+        print(f"  [ERROR] {res.error}")
+    for e in res.console_errors[:5]:
+        print(f"    · console: {e}")
+    for e in res.failed_requests[:5]:
+        print(f"    · netfail: {e}")
+    # 退出码：PASS=0；环境缺驱动（非游戏缺陷）=4；其余异常/未通过=1
+    if res.status == RuntimeStatus.PASS:
+        return 0
+    if res.status == RuntimeStatus.NEEDS_RUNTIME_TOOL:
+        return 4
+    return 1
+
+
+def cmd_vertical_slices(args):
+    """W9 八垂直切片端到端验证：生成→接 W7 真实音频→W8 真实试玩→诚实 verdict + 报告。
+
+    诚实门禁（13.2）：无真实浏览器驱动时，每片 status=NEEDS_RUNTIME_TOOL，绝不粉饰；
+    即便生成了可运行 HTML，也只有真实浏览器跑通 boot+主循环才记 PASS。
+    """
+    from core.runtime_adapter import RuntimeStatus
+    from pipeline import vertical_slice_validator as vsv
+    from pipeline.vertical_slices import VERTICAL_SLICES, get_slice, all_slice_ids
+
+    slice_id = getattr(args, "slice", "") or ""
+    episodes = int(getattr(args, "episodes", 2))
+    ticks = int(getattr(args, "ticks", 20))
+    play_seconds = ticks * 0.15
+    seed = int(getattr(args, "seed", 42))
+    attach_audio = not getattr(args, "no_audio", False)
+    out_dir = Path(getattr(args, "out", "") or str(ROOT / "output" / "slices"))
+
+    try:
+        specs = [get_slice(slice_id)] if slice_id else VERTICAL_SLICES
+    except KeyError:
+        print(f"[VSLICES] 错误：未知切片 id: {slice_id}（可用: {all_slice_ids()}）")
+        return 2
+    print(f"[VSLICES] 启动 W9 八垂直切片端到端验证: 切片数={len(specs)} ｜ episodes={episodes} "
+          f"｜ ticks={ticks}（≈{play_seconds:.1f}s）｜ 接W7音频={attach_audio} ｜ seed={seed}")
+
+    results = []
+    for spec in specs:
+        r = vsv.validate_slice(spec, episodes=episodes, play_seconds=play_seconds,
+                               seed=seed, attach_audio=attach_audio,
+                               evidence_dir=str(out_dir / "evidence"))
+        results.append(r)
+        print(f"  [{spec.id}] {r.status} ｜ 成熟度={r.maturity_achieved}/{r.maturity_target} "
+              f"｜ 到达playing={r.episodes_reached_playing} ｜ 帧={r.total_frames} "
+              f"｜ game_over={r.game_over_supported} restart={r.restart_supported} ｜ 错误={r.page_error_count}")
+        if r.needs_runtime_tool:
+            print(f"    [HONEST] 无真实浏览器驱动（{r.needs_runtime_tool}），该片诚实返回 NEEDS_RUNTIME_TOOL")
+        if r.error:
+            print(f"    [ERROR] {r.error}")
+
+    passed = sum(1 for r in results if r.status == RuntimeStatus.PASS)
+    needs_rt = sum(1 for r in results if r.status == RuntimeStatus.NEEDS_RUNTIME_TOOL)
+    failed = sum(1 for r in results if r.status == RuntimeStatus.FAIL)
+    print(f"[VSLICES] 汇总: 总计={len(results)} ｜ PASS={passed} ｜ "
+          f"NEEDS_RUNTIME_TOOL={needs_rt} ｜ FAIL={failed}")
+    report = {
+        "total": len(results), "passed": passed,
+        "needs_runtime_tool": needs_rt, "failed": failed,
+        "slices": [r.to_dict() for r in results],
+    }
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # 单切片运行写入独立文件，避免覆盖「8 切片汇总」的权威报告 vertical_slices_report.json
+    rpath = (out_dir / f"vertical_slices_report.{slice_id}.json") if slice_id else (
+        out_dir / "vertical_slices_report.json")
+    rpath.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"[VSLICES] 报告: {rpath}")
+    if failed > 0:
+        return 1
+    if needs_rt > 0:
+        return 4
+    return 0
+
+
+def cmd_autonomous(args):
+    """W10 长时程自主生产：一句话意图 → 无人值守 → 可上架包（元数据/素材/合规齐全）。
+
+    全程经 core/orchestrator DAG：装配→(真机试玩∥打包)→门禁→发布候选；
+    仅三处停：缺运行工具(NEEDS_RUNTIME_TOOL) / 超预算 / 缺 LLM 凭据。
+
+    运行模式（--mode / GAME_RUN_MODE）：
+      local（缺省）—— 不要求任何渠道凭据、沙箱、Staging、遥测，缺浏览器驱动时
+        试玩降级为「未验证」而不阻塞出货，状态 COMPLETED_UNVERIFIED。
+      platform —— 开工前即校验渠道/沙箱/Staging/遥测，缺一组就阻断并列出补齐方式。
+
+    诚实退出码：0=COMPLETED（preview 可上架包就绪）；
+    5=COMPLETED_UNVERIFIED（本地模式：包已出但验证项未跑，不得声称已验证）；
+    4=PAUSED（三处停之一或平台模式外部依赖未齐）；
+    1=FAILED（真失败，非环境缺口）；2=参数错误。
+    """
+    from core.contracts import GameIntent
+    from pipeline import autonomous_pipeline as ap
+
+    title = (getattr(args, "title", "") or "").strip()
+    if not title:
+        print("[AUTON] 错误：--title 不能为空（一句话意图必须给出游戏标题）")
+        return 2
+    genre = (getattr(args, "genre", "") or "节奏").strip() or "节奏"
+    rules = getattr(args, "rules", "") or ""
+    budget_usd = float(getattr(args, "budget", 100.0) or 100.0)
+    episodes = int(getattr(args, "episodes", 2))
+    ticks = int(getattr(args, "ticks", 20))
+    play_seconds = ticks * 0.15
+    seed = int(getattr(args, "seed", 42))
+    resume = not getattr(args, "no_resume", False)
+    art_backend = getattr(args, "art_backend", None)
+    from pipeline.run_mode import resolve_mode, describe_mode, check_local_readiness
+    mode = resolve_mode(getattr(args, "run_mode", None))
+    readiness = check_local_readiness(mode)
+
+    # 注入成本表（测试/演练用：触发超预算暂停并验证三处停诚实）
+    cost_table = None
+    ct = getattr(args, "cost_table", "") or ""
+    if ct:
+        try:
+            cost_table = json.loads(ct)
+        except Exception as exc:
+            print(f"[AUTON] 错误：--cost-table 不是合法 JSON: {exc}")
+            return 2
+
+    intent = GameIntent(title=title, genre=genre, custom_rules=rules)
+    print(f"[AUTON] 启动 W10 长时程自主生产: 标题={intent.title!r} ｜ 类型={genre} "
+          f"｜ 预算=${budget_usd:.2f} ｜ episodes={episodes} ｜ ticks={ticks}（≈{play_seconds:.1f}s）"
+          f"｜ resume={resume} ｜ run_id={intent.run_id}")
+    print(f"[AUTON] 模式={mode} —— {describe_mode(mode)}")
+    for it in readiness["items"]:
+        if it["status"] != "OK":
+            tag = "必需·缺" if it["required"] else "可选·降级"
+            print(f"  [{tag}] {it['item']}: {it['detail']}")
+            if it["how_to_fix"]:
+                print(f"      补齐: {it['how_to_fix']}")
+    if readiness["blocking"]:
+        print(f"  [BLOCK] 本地模式必需项缺失: {', '.join(readiness['blocking'])}")
+
+    out = ap.run_autonomous(
+        intent,
+        budget_usd=budget_usd,
+        cost_table=cost_table,
+        episodes=episodes,
+        play_seconds=play_seconds,
+        seed=seed,
+        resume=resume,
+        art_backend=art_backend,
+        mode=mode,
+    )
+
+    print(f"[AUTON] 状态={out['status']}")
+    if out.get("unverified"):
+        print(f"  [HONEST] 未验证项（不得声称已验证）: {', '.join(out['unverified'])}")
+    if out.get("hint"):
+        print(f"  提示: {out['hint']}")
+    pg = out.get("platform_gate")
+    if pg:
+        for g in pg.get("groups", []):
+            if g["status"] != "OK":
+                print(f"  [NEEDS_HUMAN] {g['group']}: 缺 {', '.join(g['missing'])}")
+                print(f"      如何补齐: {g['how_to_fix']}")
+    print(f"  人停原因: {out['stop_reason']}")
+    print(f"  节点: {out['node_counts']} ｜ 总数={out['totals']['total']} "
+          f"成功={out['totals']['succeeded']} 未决={out['totals']['unresolved']}")
+    print(f"  门禁: {out['gates']}")
+    print(f"  预算: 上限=${out['budget']['limit_usd']:.2f} 预估=${out['budget']['estimated_usd']:.2f} "
+          f"超支={out['budget']['exceeded']}")
+    pkg = out.get("package") or {}
+    if pkg.get("package_dir"):
+        print(f"  可上架包: {pkg['package_dir']}")
+        print(f"    文件: {pkg.get('files')}")
+        print(f"    AIGC 美术: {'是' if pkg.get('art_is_ai_generated') else '否/含程序化占位'} "
+              f"｜资产数={len(pkg.get('art_assets') or [])}")
+    rel = out.get("release") or {}
+    print(f"  发布资格: 预览候选={'具备' if rel.get('eligible') else '未达'} ｜ "
+          f"manifest={'有' if rel.get('manifest') else '无'}")
+    acc = out.get("acceptance") or {}
+    print(f"  验收: 已验证场景={acc.get('verified_scenarios')} 试玩状态={acc.get('playtest_status')} "
+          f"指标采集={'是' if acc.get('metrics_collected') else '否'}")
+    print(f"  项目记忆: {out.get('memory_path')}")
+
+    if out["status"] == ap.HumanStopPolicy.STATUS_COMPLETED:
+        return 0
+    # 出货包已产出但验证项没跑：开发可继续，但不得当作「已验收」，退出码 5
+    if out["status"] == ap.HumanStopPolicy.STATUS_COMPLETED_UNVERIFIED:
+        return 5
+    if out["status"] == ap.HumanStopPolicy.STATUS_PAUSED:
+        return 4
+    return 1
+
 
 def cmd_balance(args):
     from pipeline.numerical_simulation_orchestrator import NumericalSimulationOrchestrator
@@ -390,23 +733,460 @@ def cmd_distribute(args):
     platform = "all" if getattr(args, "dist_all", False) else getattr(args, "platform", "all")
     src_html = Path(args.input) if getattr(args, "input", None) else ROOT / "output" / "index.html"
     dist_root = Path(args.output) if getattr(args, "output", None) else ROOT / "output" / "dist"
+    godot_project = getattr(args, "godot_project", None) or None
+
+    # 诚实边界：若指定 Godot 工程，先真实尝试导出独立包；结果（含 NEEDS_RUNTIME_TOOL）原样下传，
+    # 绝不在缺模板时伪称已出原生包。
+    godot_export = None
+    if godot_project:
+        from pipeline.godot_exporter import GodotExporter
+        godot_export = GodotExporter().export_windows(Path(godot_project))
+        if godot_export.get("status") == "PASS":
+            print(f"  [GODOT PC] 独立包导出成功: {godot_export['export_path']}（将随 Steam/itch 原生分发）")
+        else:
+            print(f"  [GODOT PC] 独立包导出不可用（{godot_export.get('status')}）: {godot_export.get('reason')}")
+            print(f"             Steam/itch 将退回 Web 壳打包并如实标注 godot_native=false")
 
     print(f"[DISTRIBUTE] 启动多平台自动化分发中枢: 《{title}》[目标平台: {platform}]...")
     if platform == "all":
-        res = CommercialDistributionHub.distribute_all(title, src_html, dist_root)
+        res = CommercialDistributionHub.distribute_all(title, src_html, dist_root, godot_export=godot_export)
         print(f"  [RESULT] 四端全渠道商业分发包构建完成 (WeChat/Steam/PWA/itch.io)，合规状态: {res['compliance']['compliance_verdict']}")
     elif platform == "wechat":
         res = CommercialDistributionHub.distribute_wechat(title, src_html, dist_root)
         print(f"  [WECHAT] 微信小游戏打包完成: {res['output_dir']} (4MB 合规: {res['is_4mb_compliant']})")
     elif platform == "steam":
-        res = CommercialDistributionHub.distribute_steam(title, src_html, dist_root)
-        print(f"  [STEAM] Steam 桌面包与 SteamPipe VDF 构建完成: {res['output_dir']}")
+        res = CommercialDistributionHub.distribute_steam(title, src_html, dist_root, godot_export=godot_export)
+        print(f"  [STEAM] Steam 桌面包与 SteamPipe VDF 构建完成: {res['output_dir']} (godot_native={res['godot_native']})")
     elif platform == "pwa":
         res = CommercialDistributionHub.distribute_web_pwa(title, src_html, dist_root)
         print(f"  [PWA] Web PWA 离线安装包构建完成: {res['output_dir']}")
     elif platform == "itch":
-        res = CommercialDistributionHub.distribute_itch(title, src_html, dist_root)
-        print(f"  [ITCH] itch.io 独立分发包与 Butler 脚本构建完成: {res['output_dir']}")
+        res = CommercialDistributionHub.distribute_itch(title, src_html, dist_root, godot_export=godot_export)
+        print(f"  [ITCH] itch.io 独立分发包与 Butler 脚本构建完成: {res['output_dir']} (godot_native={res['godot_native']})")
+
+def cmd_live_smoke(args):
+    """支付 / 广告 / 联机沙箱真实链路冒烟（缺凭据时如实报缺失，不模拟通过）"""
+    from pipeline.live_service_sandbox import LiveServiceSandbox
+    kind = getattr(args, "kind", "all")
+    if kind == "all":
+        report = LiveServiceSandbox.smoke_all()
+        print(f"[LIVE-SMOKE] 已配置并连通: {report['passed'] or '无'}")
+        print(f"[LIVE-SMOKE] 未配置凭据: {report['not_configured'] or '无'}")
+        print(f"[LIVE-SMOKE] 连通但校验失败: {report['failed'] or '无'}")
+        for name, item in report["results"].items():
+            print(f"  - {name}: {item['status']}"
+                  + (f" | {item['observed']['status_code']} @ {item['observed']['latency_ms']}ms"
+                     if item.get("observed") and item["observed"].get("status_code") else "")
+                  + (f" | {item['errors'][0]}" if item["errors"] else ""))
+    else:
+        item = LiveServiceSandbox.smoke(kind)
+        print(f"[LIVE-SMOKE] {kind}: {item['status']} {item.get('observed') or item['errors']}")
+
+
+def cmd_promote(args):
+    """发布通道晋升：staging 需 qa_manager 批准 + 真实 Staging 冒烟；production 需 release_manager 批准。"""
+    channel = getattr(args, "channel", "staging")
+    approval = {"role": args.role, "approved": True, "identity": args.actor}
+    try:
+        if channel == "staging":
+            result = run_service.promote_to_staging(args.run_id, approval)
+        else:
+            result = run_service.promote_to_production(args.run_id, approval)
+    except (ReleaseBlockedError, FileNotFoundError, SecurityGuardError) as exc:
+        print(f"[PROMOTE-BLOCKED] {channel} 晋升被门禁拒绝: {exc}")
+        return
+    print(f"[PROMOTE] {result['run_id']} -> {result['channel']}: {result.get('release_status')}")
+    for key, value in (result.get("staging_smoke") or {}).items():
+        print(f"  - {key}: {value}")
+
+def cmd_submit(args):
+    """第三方渠道上架：构建上架包 + 提交前真实门禁（缺证/缺上传器一律拒，不谎称已上架）"""
+    from pipeline.store_submission import StoreSubmission
+
+    metadata_path = Path(args.metadata) if getattr(args, "metadata", "") else ROOT / "config" / "store_metadata.json"
+    if not metadata_path.is_file():
+        print(f"[SUBMIT-BLOCKED] 缺少商店元数据文件: {metadata_path}")
+        print("  请填写标题/简介/关键词/分级/隐私政策链接等必填字段后重试（模板见 config/store_metadata.example.json）")
+        return
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    channel_meta = metadata.get(args.channel) or metadata
+
+    service = StoreSubmission(Path(args.dist) if getattr(args, "dist", "") else ROOT / "output" / "dist")
+    result = service.submit(args.channel, channel_meta, dry_run=not getattr(args, "execute", False),
+                            assets_dir=Path(args.assets) if getattr(args, "assets", "") else None)
+
+    print(f"[SUBMIT] 渠道 {args.channel} ({result.get('channel', args.channel)}) -> {result['status']}")
+    print(f"  - 上架包: {result.get('bundle_path')}")
+    for err in result.get("errors", []):
+        print(f"  - 阻塞项: {err}")
+    if result.get("note"):
+        print(f"  - 说明: {result['note']}")
+    if result.get("command"):
+        print(f"  - 命令: {' '.join(result['command'])}")
+    if result["status"] == "SUBMITTED":
+        print(f"  - 上传器返回码: {result['returncode']}")
+
+def cmd_channel_doctor(args):
+    """外部渠道体检：逐项列出每个渠道缺什么、由谁补、怎么补（凭据值一律不打印）"""
+    from pipeline.channel_doctor import ChannelDoctor, MISSING, NEEDS_HUMAN, OK
+
+    dist = Path(args.dist) if getattr(args, "dist", "") else ROOT / "output" / "dist"
+    meta = Path(args.metadata) if getattr(args, "metadata", "") else None
+    assets = Path(args.assets) if getattr(args, "assets", "") else None
+    doctor = ChannelDoctor(dist, meta, assets)
+
+    channel = getattr(args, "channel", "") or ""
+    if channel:
+        reports = [doctor.diagnose(channel)]
+        overall = reports[0]
+    else:
+        payload = doctor.diagnose_all()
+        reports = payload["channels"]
+        overall = payload
+
+    if getattr(args, "json", False):
+        print(_json.dumps({"channels": reports}, ensure_ascii=False, indent=2))
+    else:
+        for rep in reports:
+            if "errors" in rep:
+                print(f"[CHANNEL-DOCTOR] {rep['channel']}: {rep['errors'][0]}")
+                continue
+            mark = "READY" if rep["ready"] else ("NEEDS_HUMAN" if rep["blocking_human"] else "BLOCKED")
+            print(f"[CHANNEL-DOCTOR] {rep['channel']} ({rep['label']}) -> {mark} "
+                  f"｜通过 {rep['ok']}/{rep['total']}｜待人工 {rep['blocking_human']}｜待 Agent {rep['blocking_agent']}")
+            for chk in rep["checks"]:
+                if chk["status"] == OK:
+                    continue
+                who = "需人工" if chk["owner"] == "human" else "Agent 可补"
+                print(f"  - [{chk['status']}/{who}] {chk['item']}: {chk['detail']}")
+                if chk.get("how_to_fix"):
+                    print(f"      补齐方式: {chk['how_to_fix']}")
+            if rep["human_materials"] and not rep["ready"]:
+                print(f"  - 纯人工材料（代码无法代劳）:")
+                for mat in rep["human_materials"]:
+                    print(f"      * {mat['item']} —— {mat['how']}")
+                    print(f"        原因: {mat['why']}")
+        if not channel:
+            print(f"  - 已就绪渠道: {overall['ready'] or '无'}")
+            print(f"  - 待人工配合渠道: {overall['needs_human'] or '无'}")
+
+    if isinstance(overall, dict) and "errors" in overall:
+        raise SystemExit(2)
+    need_human = sum(r.get("blocking_human", 0) for r in reports)
+    # 0=渠道已具备提交条件 / 3=缺必须由人提供的材料 / 1=缺 Agent 可自行补齐的项
+    raise SystemExit(0 if need_human == 0 and all(r.get("ready") for r in reports) else (3 if need_human else 1))
+
+
+def cmd_delivery_audit(args):
+    """交付卫生审计：扫描目标目录是否存在秘密文件与明文密钥（结论为「未命中已知模式」）"""
+    from pipeline.delivery_hygiene import CLEAN, audit_delivery
+
+    target = Path(args.path) if getattr(args, "path", "") else ROOT
+    strict = getattr(args, "strict", False)
+    report = audit_delivery(target, check_content=not getattr(args, "no_content", False), strict=strict)
+
+    if getattr(args, "json", False):
+        print(_json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        blocking = report.get("blocking_findings", [])
+        blocking_ids = {id(f) for f in blocking}
+        others = [f for f in report["findings"] if id(f) not in blocking_ids]
+        print(f"[DELIVERY-AUDIT] {report['status']} ｜目录 {report['root']} ｜扫描 {report['scanned_files']} 个文件"
+              f"｜strict={strict}")
+        print(f"  - 阻断项 {len(blocking)} ｜测试固件 {report['counts_by_category'].get('test_fixture', 0)}"
+              f"｜第三方文档 {report['counts_by_category'].get('external_doc', 0)}")
+        for f in blocking[:50]:
+            loc = f"{f['path']}:{f['line']}" if f.get("line") else f["path"]
+            print(f"  - [阻断/{f['rule']}] {loc} :: {f['detail']}")
+        for f in others[:20]:
+            loc = f"{f['path']}:{f['line']}" if f.get("line") else f["path"]
+            print(f"  - [非阻断/{f['category']}/{f['rule']}] {loc}")
+        if len(report["findings"]) > 70:
+            print(f"  - ...还有命中未展示（加 --json 查看全部）")
+        if report["status"] == CLEAN:
+            print("  - 结论: 未命中已知密钥模式，可交付。注意这不等价于「绝对无泄露」")
+        else:
+            print("  - 结论: 存在阻断项，不要直接把该目录打包分发；"
+                  "请用 delivery-pack 生成脱敏副本后再交付")
+
+    raise SystemExit(0 if report["status"] == CLEAN else 1)
+
+
+def cmd_delivery_pack(args):
+    """生成脱敏交付副本：排除秘密文件后复检自证，产物干净才允许分发"""
+    from pipeline.delivery_hygiene import CLEAN, sanitize_copy
+
+    src = Path(args.src) if getattr(args, "src", "") else ROOT
+    dst = Path(args.out)
+    # docs/ 是抓取的第三方文章归档（含他人 appid 等外部内容），不随交付物分发
+    exclude_dirs = [] if getattr(args, "include_output", False) else ["output", "dist", "build", "saves", "docs"]
+
+    result = sanitize_copy(src, dst, extra_exclude_dirs=exclude_dirs)
+
+    if getattr(args, "json", False):
+        print(_json.dumps(result, ensure_ascii=False, indent=2))
+    else:
+        print(f"[DELIVERY-PACK] {result['status']} ｜{result['src']} -> {result['dst']}")
+        print(f"  - 复制文件: {result['copied_files']}｜排除文件: {len(result['excluded_files'])}")
+        for item in result["excluded_files"][:20]:
+            print(f"  - 排除: {item['path']} ({item['reason']})")
+        if len(result["excluded_files"]) > 20:
+            print(f"  - ...还有 {len(result['excluded_files']) - 20} 个被排除文件")
+        print(f"  - 产物复检: {result['recheck']['status']}（阻断 {result['recheck']['blocking']} 条，"
+              f"测试固件 {result['recheck']['counts_by_category'].get('test_fixture', 0)} 条）")
+        if result["status"] == CLEAN:
+            print("  - 结论: 产物未命中已知密钥模式，可以分发给用户")
+        else:
+            print("  - 结论: 产物仍有可疑项，禁止分发")
+
+    raise SystemExit(0 if result["status"] == CLEAN else 1)
+
+
+def cmd_live_doctor(args):
+    """线上服务体检：支付/广告/联机沙箱 + Staging 部署，缺什么报什么，凭据值不打印"""
+    from pipeline.live_service_doctor import LiveServiceDoctor, PASS
+
+    if getattr(args, "emit_reference", ""):
+        path = LiveServiceDoctor.write_reference_server(Path(args.emit_reference))
+        print(f"[LIVE-DOCTOR] 已写出 /health 参考服务端: {path}")
+        print("  启动: python reference_health_server.py --service payment --environment sandbox --port 8787")
+        print("  然后配置 PAYMENT_SANDBOX_URL=http://127.0.0.1:8787 与 PAYMENT_SANDBOX_KEY")
+        return
+
+    doctor = LiveServiceDoctor(timeout_s=float(getattr(args, "timeout", 8.0) or 8.0))
+    kind = getattr(args, "kind", "") or ""
+    if kind:
+        reports = [doctor.diagnose_staging()] if kind == "staging" else [doctor.diagnose_sandbox(kind)]
+        if "errors" in reports[0]:
+            print(f"[LIVE-DOCTOR] {reports[0]['errors'][0]}")
+            raise SystemExit(2)
+    else:
+        reports = doctor.diagnose_all()["services"]
+
+    if getattr(args, "json", False):
+        print(_json.dumps({"services": reports}, ensure_ascii=False, indent=2))
+    else:
+        for rep in reports:
+            mark = "READY" if rep.get("ready") else rep.get("status")
+            print(f"[LIVE-DOCTOR] {rep['kind']} ({rep.get('label', rep['kind'])}) -> {mark}")
+            for chk in rep["checks"]:
+                if chk["status"] == PASS:
+                    continue
+                print(f"  - [{chk['status']}/需人工] {chk['item']}: {chk['detail']}")
+                if chk.get("how_to_fix"):
+                    print(f"      补齐方式: {chk['how_to_fix']}")
+        blocked = [r["kind"] for r in reports if not r.get("ready")]
+        print(f"  - 已就绪: {[r['kind'] for r in reports if r.get('ready')] or '无'}")
+        print(f"  - 待人工: {blocked or '无'}")
+        print("  - 说明: 服务端必须返回 {\"service\":..., \"status\":\"ok\", \"environment\":...} 才算自证通过；"
+              "仅能连上不算可用")
+
+    raise SystemExit(0 if all(r.get("ready") for r in reports) else 3)
+
+
+def cmd_live_flow(args):
+    """线上服务真实业务链路冒烟：下单→查单→退款 / 请求广告→曝光→点击 / 建房→加入→离开
+
+    与 live-doctor 的区别：live-doctor 只探 /health（证明端点活着），
+    本命令跑真实业务事务（证明链路能跑通）。
+    """
+    from pipeline.live_service_flow import (
+        LiveServiceFlow, PASS, FAIL, NEEDS_SANDBOX_CREDENTIALS, CONTRACT_MISMATCH,
+    )
+
+    kind = getattr(args, "kind", "") or "all"
+    flow = LiveServiceFlow(timeout_s=float(getattr(args, "timeout", 8.0) or 8.0))
+    report = flow.run_all() if kind == "all" else flow.run(kind)
+
+    if getattr(args, "json", False):
+        print(_json.dumps(report, ensure_ascii=False, indent=2))
+        raise SystemExit(0 if report.get("status") == PASS else 1)
+
+    results = report["results"] if "results" in report else {kind: report}
+    for k, r in results.items():
+        print(f"[LIVE-FLOW] {k}（{r.get('label', k)}）-> {r['status']}")
+        if r.get("detail"):
+            print(f"    说明: {r['detail']}")
+        for st in r.get("steps", []):
+            print(f"    - [{st['status']}] {st['step']} ｜HTTP {st['status_code']} ｜{st['latency_ms']}ms")
+        auth = r.get("auth")
+        if auth:
+            print(f"    - [{auth['status']}] 鉴权校验: {auth['detail']}")
+        if r["status"] == NEEDS_SANDBOX_CREDENTIALS:
+            print(f"    补齐方式: {r.get('how_to_fix','')}")
+        if r["status"] == CONTRACT_MISMATCH:
+            print("    契约: " + "；".join(r.get("contract", [])))
+
+    print(f"  - 已通过: {report.get('passed') or [k for k, r in results.items() if r['status'] == PASS] or '无'}")
+    print(f"  - 未配置: {report.get('not_configured') or [k for k, r in results.items() if r['status'] == NEEDS_SANDBOX_CREDENTIALS] or '无'}")
+    print(f"  - 失败: {report.get('failed') or [k for k, r in results.items() if r['status'] not in (PASS, NEEDS_SANDBOX_CREDENTIALS)] or '无'}")
+    raise SystemExit(0 if all(r["status"] == PASS for r in results.values()) else 1)
+
+
+def cmd_review_create(args):
+    """建立人工复核工单：记录工件 sha256，形成待复核项"""
+    from pipeline.human_review import HumanReviewBoard
+
+    board = HumanReviewBoard()
+    ticket = board.create_ticket(args.run_id, args.kind, Path(args.artifact), notes=getattr(args, "notes", "") or "")
+    print(f"[REVIEW] 工单已建立: {ticket['ticket_id']}")
+    print(f"  - 类型: {ticket['kind']} ｜工件: {ticket['artifact']}")
+    print(f"  - sha256: {ticket['artifact_sha256']}")
+    print("  - 待复核项:")
+    for entry in ticket["checklist"]:
+        print(f"      * {entry['item']}")
+
+
+def _do_review_submit(args, verdict):
+    from pipeline.human_review import HumanReviewBoard
+
+    board = HumanReviewBoard()
+    results = {}
+    for raw in (getattr(args, "item", None) or []):
+        if "=" in raw:
+            name, value = raw.split("=", 1)
+            results[name.strip()] = value.strip()
+    try:
+        ticket = board.submit(args.ticket_id, args.reviewer, verdict, results,
+                              notes=getattr(args, "notes", "") or "")
+    except (ValueError, FileNotFoundError) as exc:
+        print(f"[REVIEW-BLOCKED] {exc}")
+        raise SystemExit(2)
+    print(f"[REVIEW] {ticket['ticket_id']} -> {ticket['verdict']} ｜复核人: {ticket['reviewer']}")
+    for entry in ticket["checklist"]:
+        print(f"  - [{entry['result']}] {entry['item']}")
+    if ticket.get("artifact_sha256_matches") is False:
+        print("  - 警告: 工件在建立工单后被修改，sha256 与工单记录不一致")
+    print("  - 记录仅证明具名复核发生，不等于签署者具备审美或法务资质")
+
+
+def cmd_review_approve(args):
+    """人工复核通过：必须署名"""
+    _do_review_submit(args, "APPROVED")
+
+
+def cmd_review_reject(args):
+    """人工复核驳回或要求返工：必须署名并写明原因"""
+    _do_review_submit(args, "REJECTED" if getattr(args, "reject", False) else "NEEDS_REVISION")
+
+
+def cmd_review_status(args):
+    """查询某次运行是否具备生产放行所需的人工复核"""
+    from pipeline.human_review import HumanReviewBoard, PRODUCTION_REQUIRED_KINDS
+
+    board = HumanReviewBoard()
+    report = board.production_gate(args.run_id)
+    print(f"[REVIEW-STATUS] {args.run_id} -> {report['status']}")
+    print(f"  - 必需复核: {', '.join(report['required'])}")
+    print(f"  - 未复核: {report['missing'] or '无'}")
+    print(f"  - 未通过: {report['not_approved'] or '无'}")
+    print(f"  - 已批准: {report['approved_by'] or '无'}")
+    print(f"  - {report.get('note', '')}")
+    raise SystemExit(0 if report["allowed"] else 1)
+
+
+def cmd_player_doctor(args):
+    """真实玩家验证体检：遥测接入、试点队列、事件真实性（模拟数据不得冒充真人）"""
+    from pipeline.player_validation import PlayerValidation, PASS, NO_REAL_PLAYER_DATA
+
+    events = Path(args.events) if getattr(args, "events", "") else None
+    validator = PlayerValidation()
+    report = validator.diagnose(events)
+
+    if getattr(args, "json", False):
+        print(_json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        print(f"[PLAYER-DOCTOR] {report['status']}")
+        for chk in report["checks"]:
+            if chk["status"] == PASS:
+                continue
+            print(f"  - [{chk['status']}/需人工] {chk['item']}: {chk['detail']}")
+            if chk.get("how_to_fix"):
+                print(f"      补齐方式: {chk['how_to_fix']}")
+        for cohort in report["cohorts"]:
+            print(f"  - 试点 {cohort['cohort_id']}: 来源 {cohort['source']}，"
+                  f"{cohort['size']} 人 / {cohort['window_days']} 天")
+        print(f"  - {report['note']}")
+        if report["status"] == NO_REAL_PLAYER_DATA:
+            print("  - 结论: 目前不能对外宣称任何留存/付费/时长数据")
+
+    raise SystemExit(0 if report["ready"] else 3)
+
+
+def cmd_player_cohort(args):
+    """登记真实玩家试点队列：来源、人数、时间窗、联系人"""
+    from pipeline.player_validation import PlayerValidation
+
+    validator = PlayerValidation()
+    try:
+        record = validator.register_cohort(args.cohort_id, args.source, args.size,
+                                           args.window_days, contact=getattr(args, "contact", "") or "",
+                                           notes=getattr(args, "notes", "") or "")
+    except ValueError as exc:
+        print(f"[PLAYER-COHORT-BLOCKED] {exc}")
+        raise SystemExit(2)
+    print(f"[PLAYER-COHORT] 已登记: {record['cohort_id']}")
+    print(f"  - 来源: {record['source']} ｜人数: {record['size']} ｜时间窗: {record['window_days']} 天")
+    print(f"  - 登记时间: {record['registered_at']}")
+
+
+def cmd_env_check(args):
+    """环境自检总表：把四个缺口还差什么汇总成一张表（不打印任何凭据值）"""
+    from pipeline.env_check import EnvCheck, MISSING, OK
+
+    from pipeline.run_mode import resolve_mode, describe_mode, PLATFORM
+    mode = resolve_mode(getattr(args, "run_mode", None))
+    report = EnvCheck(probe=not getattr(args, "no_probe", False)).run(mode)
+
+    if getattr(args, "json", False):
+        print(_json.dumps(report, ensure_ascii=False, indent=2))
+    else:
+        print(f"[ENV-CHECK] 模式={mode} —— {describe_mode(mode)}")
+        if mode == PLATFORM:
+            print(f"  {report['status']} ｜就绪 {report['ok']}/{report['total']}｜待填 {report['pending_count']}")
+        else:
+            print(f"  本地开发所需: 待填 {report['local_pending_count']} 项"
+                  f"（渠道/沙箱/Staging/遥测共 {report['platform_pending_count']} 项属平台模式，暂不影响本地开发）")
+        for group in report["groups"]:
+            g_ok = sum(1 for c in group["checks"] if c["status"] == OK)
+            scope = "［平台模式才需要］" if group.get("scope") == PLATFORM else "［本地开发］"
+            print(f"  【{group['label']}】{g_ok}/{len(group['checks'])} {scope}")
+            for chk in group["checks"]:
+                mark = "OK" if chk["status"] == OK else chk["status"]
+                print(f"    - [{mark}] {chk['item']}: {chk['detail']}")
+                if chk["status"] != OK and chk.get("how_to_fix"):
+                    print(f"        补齐: {chk['how_to_fix']}")
+        if report["local_ready"]:
+            print("  - 结论: 本地开发所需已齐备，可直接 --run-mode local 开工")
+        else:
+            print("  - 结论: 本地开发仍有待填项（见上方［本地开发］分组）")
+        if report["platform_pending_count"]:
+            print(f"  - 备注: {report['platform_pending_count']} 项平台依赖未配置；"
+                  f"要真实上架/线上运营时再切 --run-mode platform，届时会逐项列出")
+
+    raise SystemExit(0 if (report["ready"] if mode == PLATFORM else report["local_ready"]) else 3)
+
+
+def cmd_rollback(args):
+    """发布回滚：写审计并记录决策，不谎称已执行远端下架动作。"""
+    try:
+        result = run_service.rollback(args.run_id, args.reason, {"role": args.role, "identity": args.actor})
+    except (ReleaseBlockedError, FileNotFoundError, SecurityGuardError) as exc:
+        print(f"[ROLLBACK-BLOCKED] {exc}")
+        return
+    print(f"[ROLLBACK] {result['run_id']}: {result['status']} | 回滚清单 {result['rolled_back']}")
+    print(f"  - 审计: {result['audit']}")
+
+def cmd_drill(args):
+    """发布门禁故障注入演练：每条用例故意制造违规，断言门禁必须拒绝。"""
+    from pipeline.release_drill import ReleaseDrill
+    report = ReleaseDrill.run()
+    print(f"=== 发布门禁故障注入演练: {report['status']} ({report['passed']}/{report['total']}) ===")
+    for case in report["cases"]:
+        print(f"  [{'OK  ' if case['passed'] else 'FAIL'}] {case['case']}: {case['actual'][:120]}")
+    if report["status"] != "PASS":
+        raise SystemExit(1)
+
 
 def cmd_spec(args):
     from core.planner import GameStudioPlanner
@@ -633,7 +1413,530 @@ def cmd_3d_pipeline(args):
     out = NextGen3AShowcaseGenerator.generate_showcase_html(out_path)
     print(f"[3D-PIPELINE] ✅ 次时代 3A 视口展台生成完毕: {out} ({out.stat().st_size} bytes)")
 
+def cmd_llm_import(args):
+    """从本地 JSON 导入 LLM 端点池（含密钥，写入 gitignore 的 config/llm_endpoints.json）。"""
+    import json as _json
+    from core.llm_gateway import ENDPOINT_POOL_FILE, load_endpoints
+
+    src = Path(args.file).expanduser()
+    if not src.exists():
+        print(f"[LLM-IMPORT] ❌ 找不到文件: {src}")
+        raise SystemExit(2)
+    try:
+        data = _json.loads(src.read_text(encoding="utf-8"))
+    except _json.JSONDecodeError as exc:
+        print(f"[LLM-IMPORT] ❌ 不是合法 JSON: {exc}")
+        raise SystemExit(2)
+
+    endpoints = data if isinstance(data, list) else data.get("endpoints", [])
+    if not endpoints:
+        print("[LLM-IMPORT] ❌ 文件中没有端点条目")
+        raise SystemExit(2)
+
+    ENDPOINT_POOL_FILE.parent.mkdir(parents=True, exist_ok=True)
+    ENDPOINT_POOL_FILE.write_text(_json.dumps(endpoints, ensure_ascii=False, indent=2), encoding="utf-8")
+    loaded = load_endpoints()
+    print(f"[LLM-IMPORT] 已导入 {len(loaded)} 个端点 -> {ENDPOINT_POOL_FILE}")
+    print(f"  [SECURITY] 该文件已在 .gitignore 中，密钥不会进入版本库。")
+    print("  [NEXT] 执行 `game_agent.py llm-status` 做真实连通性探测（不探测不得宣称可用）。")
+
+def cmd_llm_status(args):
+    """真实探测每个端点：只把真正拿回内容的端点记为可用。"""
+    from core.llm_gateway import load_endpoints, probe_endpoint
+    pool = load_endpoints()
+    if not pool:
+        print("[LLM-STATUS] 端点池为空。先执行 `game_agent.py llm-import --file <llm.json>`")
+        raise SystemExit(2)
+    print(f"[LLM-STATUS] 真实连通性探测（共 {len(pool)} 个端点，逐个发真实请求）")
+    ok_count = 0
+    for ep in pool:
+        res = probe_endpoint(ep)
+        flag = "OK  " if res["ok"] else "FAIL"
+        if res["ok"]:
+            ok_count += 1
+        print(f"  [{flag}] {res['id'][:52]:52s} {res['latency_ms']:5d}ms {res['error'][:60]}")
+    print(f"[LLM-STATUS] 可用 {ok_count}/{len(pool)}")
+    if ok_count == 0:
+        print("  [HONEST] 没有可用端点，所有依赖 LLM 的能力将返回 NEEDS_LLM_CREDENTIALS，不会用模板冒充。")
+        raise SystemExit(3)
+
+def cmd_skill_list(args):
+    """W3 L2 技能适配状态（真实计数，不做美化）。"""
+    from core.skill_registry import skill_registry, SkillStatus
+    from core.skill_registry_seeds import apply_default_seeds
+    from core.skill_classification import apply_classification, unclassified
+
+    if not skill_registry._skills:
+        skill_registry.ingest_from_registry()
+    seed_res = apply_default_seeds(verbose=False)
+    apply_classification(skill_registry)
+    # 内存注册表不跨进程：从证据摘要回放"曾经真跑通过"的 C 类技能
+    import json as _json
+    import os
+
+    from core.c_skill_verifier import DIGEST_PATH, restore_registrations
+    from core.b_skill_runtime import (BATCH1_IMPLEMENTED, BATCH1_RUNTIME_TOOL,
+                                      restore_b_registrations)
+    restore_registrations(skill_registry, verbose=True)
+    restore_b_registrations(skill_registry, verbose=True)
+
+    # 双口径：单次批量运行的通过率在 17~22/24 间波动，只报一个数必然失真。
+    digest = None
+    if os.path.exists(DIGEST_PATH):
+        try:
+            with open(DIGEST_PATH, "r", encoding="utf-8") as f:
+                digest = _json.load(f)
+        except (OSError, ValueError):
+            digest = None
+
+    counts = skill_registry.counts()
+    left = unclassified(skill_registry)
+    print("[L2-SKILLS] 技能库适配状态（真实计数，分母永远 114）")
+    print(f"  A_REGISTERED : {counts['A_REGISTERED']:3d}  (复用现成模块，已真注册为 Capability)")
+    print(f"  C_REGISTERED : {counts['C_REGISTERED']:3d}  (绑 LLM，真实调用并通过校验后才注册)")
+    print(f"  C_SPECD      : {counts['C_SPECD']:3d}  (有产出契约，尚未真跑通)")
+    print(f"  B            : {counts['B']:3d}  (确定性可实现，待 W4 落地)")
+    print(f"  未分类       : {len(left):3d}")
+    print(f"  TOTAL        : {counts['TOTAL']}")
+    print(f"  ── 已可用合计: {counts['A_REGISTERED'] + counts['C_REGISTERED']} / 114")
+
+    if digest:
+        last = digest.get("last_run") or {}
+        print(f"  ── C 类双口径（不可混用）:")
+        print(f"     历史通过 ever_passed : {digest.get('ever_passed_count')}/24 "
+              f"（至少一次真实通过，payload 可回查）")
+        print(f"     最近一次 last_run    : {last.get('ok')}/{last.get('total')} "
+              f"@ {digest.get('run_id')}")
+        print(f"     累计批量运行         : {len(digest.get('history_runs', []))} 次")
+        low = [(i["skill_id"], i["pass_rate"]) for i in digest.get("per_skill", [])
+               if i.get("pass_rate") is not None and i["pass_rate"] < 1.0]
+        if low:
+            low.sort(key=lambda x: x[1])
+            print(f"     通过率 <100% 的 {len(low)} 项（模型波动，非契约缺陷）: "
+                  f"{', '.join(f'{s}={r}' for s, r in low[:6])}"
+                  f"{' ...' if len(low) > 6 else ''}")
+
+    if seed_res.get("failed", 0) > 0:
+        print(f"  [SEED-FAIL] 本次 seeds 失败 {seed_res['failed']} 项:")
+        for fid in seed_res.get("failed_ids", [])[:10]:
+            print(f"    - {fid}")
+    if left:
+        print(f"  [GAP] 未分类项（分类表漏了，必须补）: {left[:10]}")
+
+    print()
+    print("已注册 (A — 复用现成模块):")
+    for s in skill_registry.list(status=SkillStatus.REGISTERED):
+        if s.cls != "A":
+            continue
+        cap = s.capability
+        mod = cap.implementation.get("module", "?") if cap else "?"
+        ent = cap.implementation.get("entrypoint", "?") if cap else "?"
+        print(f"  - {s.skill_id:42s}  [{s.category:9s}]  -> {mod}.{ent}")
+
+    c_reg = [s for s in skill_registry.list(status=SkillStatus.REGISTERED) if s.cls == "C"]
+    if c_reg:
+        print()
+        print("已注册 (C — 真实调用 LLM 并通过校验):")
+        for s in c_reg:
+            cap = s.capability
+            note = ""
+            for n in reversed(s.notes):
+                if n.startswith("真实调用"):
+                    note = n
+                    break
+            print(f"  - {s.skill_id:42s}  [{s.category:9s}]  {note}")
+
+    # HONEST
+    target_a = 40
+    c_specd = skill_registry.list(cls="C", status=SkillStatus.NEEDS_IMPLEMENTATION)
+    print()
+    last_ok = (digest.get("last_run") or {}).get("ok") if digest else None
+    b_impl = len(BATCH1_IMPLEMENTED)
+    b_rt = len(BATCH1_RUNTIME_TOOL)
+    print(f"  [HONEST] W3c 阶段：A 类 {counts['A_REGISTERED']}/{target_a} 真实注册；"
+          f"C 类 {counts['C_REGISTERED']}/24 至少一次真实通过"
+          f"（最近一次批量运行 {last_ok}/24，波动来自模型能力差异，"
+          f"单次数不得当作能力证明）；"
+          f"W4（B 类 {counts['B']} 项）第一批：{b_impl} 项确定性算法已真跑+验收注册、"
+          f"{b_rt} 项标 NEEDS_RUNTIME_TOOL（缺 DCC/GPU 不伪证），"
+          f"余下 {counts['B'] - b_impl - b_rt} 项按同模式后续批次落地。"
+          f"当前 B_REGISTERED={counts['B_REGISTERED']}。")
+    if c_specd and not getattr(args, "verbose", False):
+        print(f"          未跑通的 C 类：{', '.join(s.skill_id for s in c_specd[:6])}"
+              f"{' ...' if len(c_specd) > 6 else ''}")
+    if digest:
+        print("          口径说明：ever_passed=历史至少一次真实通过；last_ok=最近一次结果。"
+              "两者混用即为粉饰。可用 `skill-audit-c` 复核历史通过是否仍满足当前契约。")
+
+
+def cmd_skill_run(args):
+    """真实跑一项 C 类技能（不跑就不许说它能用）。"""
+    import json
+    from core.llm_skill_adapter import LLMSkillAdapter
+    from core.c_skill_verifier import CSkillVerifier, DEFAULT_TASKS
+
+    sid = args.skill
+    adapter = LLMSkillAdapter(provider=getattr(args, "provider", "auto"),
+                              model=getattr(args, "model", None))
+    pre = adapter.preflight()
+    if not pre["llm_ready"]:
+        print(f"[SKILL-RUN] {sid}: NEEDS_LLM_CREDENTIALS")
+        print(f"  {pre['how_to_fix']}")
+        return 1
+
+    task = args.task or DEFAULT_TASKS.get(sid, "")
+    if not task:
+        print(f"[SKILL-RUN] 未给 --task，且 {sid} 没有默认任务。")
+        return 2
+    r = CSkillVerifier(adapter=adapter).run_one(sid, task)
+    print(f"[SKILL-RUN] {sid} -> {r.status} | {r.provider}/{r.model} "
+          f"| 尝试 {r.attempts} 次 | {r.latency_ms}ms")
+    if r.ok:
+        print(json.dumps(r.payload, ensure_ascii=False, indent=2)[:4000])
+    else:
+        for e in r.errors[:10]:
+            print(f"  - {e}")
+    return 0 if r.ok else 1
+
+
+def cmd_skill_verify_c(args):
+    """批量真实跑通 24 项 C 类技能，通过的才允许注册，证据落工件库。"""
+    from core.c_skill_verifier import verify_all
+    ev = verify_all(verbose=True,
+                    skill_ids=[args.skill] if getattr(args, "skill", None) else None,
+                    model=getattr(args, "model", None))
+    if ev.get("status") == "NEEDS_LLM_CREDENTIALS":
+        print("[VERIFY-C] NEEDS_LLM_CREDENTIALS：没有可用 LLM 后端，未跑任何一项。")
+        print(f"  {ev.get('how_to_fix')}")
+        return 1
+    print("=" * 70)
+    print(f"[VERIFY-C] total={ev['total']} ok={ev['ok']} failed={ev['failed']} "
+          f"elapsed={ev.get('elapsed_seconds')}s")
+    print(f"  run_dir   : {ev.get('run_dir')}")
+    print(f"  integrity : {ev.get('artifact_integrity')}")
+    print(f"  counts    : {ev.get('counts')}")
+    if ev.get("failed_detail"):
+        print("  未跑通（如实列出，不筛掉）:")
+        for f in ev["failed_detail"]:
+            print(f"    - {f['skill_id']:38s} {f.get('status')} | "
+                  f"{(f.get('errors') or [''])[0][:100]}")
+    return 0 if ev["failed"] == 0 else 1
+
+def cmd_skill_audit_c(args):
+    """离线复校验：历史"通过"在当前契约下是否仍然成立（不调 LLM、不烧额度）。
+
+    为什么单独成命令：`ever_passed` 说的是"曾经跑通过"，契约改过之后它可能与
+    现状不符。这条命令把每项通过记录的 payload 按哈希从工件库读回，用当前契约
+    重跑一遍，把"历史通过"和"当前仍成立"分开报，避免拿旧证据冒充现状。
+    """
+    from core.c_skill_verifier import AUDIT_PATH, CSkillVerifier
+    rep = CSkillVerifier.audit_evidence()
+    if rep.get("error"):
+        print(f"[AUDIT-C] {rep['error']}")
+        return 1
+    print("=" * 70)
+    print(f"[AUDIT-C] 复校验 {rep['checked']} 项 ｜ "
+          f"当前仍成立 {rep['still_valid']} ｜ 契约已变失效 {rep['stale']} ｜ "
+          f"工件缺失 {rep['missing']} ｜ 无通过记录 {rep['no_pass_record']}")
+    print(f"  报告: {AUDIT_PATH}")
+    for d in rep["details"]:
+        if d["audit"] == "still_valid":
+            continue
+        extra = (d.get("errors") or [d.get("error", "")])[:2]
+        print(f"    - {d['skill_id']:38s} {d['audit']:14s} | {extra}")
+    if rep["stale"] or rep["missing"]:
+        print("  [HONEST] 上列项的历史通过已不能代表现状，需重跑 skill-verify-c 更新证据。")
+    return 0 if (rep["stale"] == 0 and rep["missing"] == 0) else 1
+
+
+def cmd_skill_verify_b(args):
+    """批量真实运行 B 类（确定性算法）技能，验收通过的才注册，证据落工件库。
+
+    B 类不依赖 LLM、不依赖网络：纯函数式运行 + 数值断言验收。依赖 DCC/GPU 工具
+    的 B 类（如高模雕刻、PBR 烘焙）会返回 NEEDS_RUNTIME_TOOL，明确标红不伪证。
+    """
+    from core.b_skill_runtime import verify_all, BSkillRuntime
+    ev = verify_all(verbose=True,
+                    skill_ids=[args.skill] if getattr(args, "skill", None) else None)
+    print("=" * 70)
+    print(f"[VERIFY-B] total={ev['total']} ok={ev['ok']} failed={ev['failed']} "
+          f"elapsed={ev.get('elapsed_seconds')}s")
+    print(f"  run_dir   : {ev.get('run_dir')}")
+    print(f"  integrity : {ev.get('artifact_integrity')}")
+    print(f"  counts    : {ev.get('counts')}")
+    if ev.get("failed_detail"):
+        print("  未通过/未跑（如实列出，不粉饰）:")
+        for f in ev["failed_detail"]:
+            tag = f.get("needs_runtime_tool") or f.get("status")
+            print(f"    - {f['skill_id']:38s} {tag} | "
+                  f"{(f.get('errors') or [''])[0][:100]}")
+    return 0 if ev["failed"] == 0 else 1
+
+
+def cmd_skill_run_b(args):
+    """真实运行一项 B 类技能（确定性，不调 LLM）。"""
+    import json
+    from core.b_skill_runtime import BSkillRuntime
+    r = BSkillRuntime().run_skill(args.skill, json.loads(args.params) if args.params else None)
+    print(f"[SKILL-RUN-B] {r.skill_id} -> {r.status} | {r.runtime} | {r.latency_ms}ms")
+    if r.ok:
+        print(json.dumps(r.payload, ensure_ascii=False, indent=2)[:4000])
+    else:
+        for e in r.errors[:10]:
+            print(f"  - {e}")
+    return 0 if r.ok else 1
+
+
+def cmd_skill_audit_b(args):
+    """离线复验：B 类历史通过的 payload 在当前契约下是否仍成立。"""
+    from core.b_skill_runtime import AUDIT_PATH, BSkillRuntime
+    rep = BSkillRuntime.audit_evidence()
+    if rep.get("error"):
+        print(f"[AUDIT-B] {rep['error']}")
+        return 1
+    print("=" * 70)
+    print(f"[AUDIT-B] 复验 {rep['checked']} 项 ｜ 仍成立 {rep['still_valid']} ｜ "
+          f"失效 {rep['stale']} ｜ 缺失 {rep['missing']} ｜ 无通过记录 {rep['no_pass_record']}")
+    print(f"  报告: {AUDIT_PATH}")
+    for d in rep["details"]:
+        if d["audit"] == "still_valid":
+            continue
+        extra = (d.get("errors") or [d.get("error", "")])[:2]
+        print(f"    - {d['skill_id']:38s} {d['audit']:14s} | {extra}")
+    return 0 if (rep["stale"] == 0 and rep["missing"] == 0) else 1
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# W5：2D 资产工厂 CLI（ImageGenAdapter + StyleBible + 入库 QA）
+# ─────────────────────────────────────────────────────────────────────────────
+def cmd_asset_style(args):
+    """初始化并锁定一份风格圣经 StyleBible（后续所有资产 prompt 必须引用它）。"""
+    import json
+    from pathlib import Path
+    from pipeline.style_bible import StyleBible
+    palette = None
+    if getattr(args, "palette", None):
+        palette = [c.strip() for c in args.palette.split(",") if c.strip()]
+    sb = StyleBible.build(name=getattr(args, "name", "default") or "default",
+                          seed=int(getattr(args, "seed", 0) or 0), palette=palette)
+    sb.lock()
+    out = getattr(args, "out", None) or "evidence/style_bible.json"
+    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    with open(out, "w", encoding="utf-8") as f:
+        json.dump(sb.to_dict(), f, ensure_ascii=False, indent=2)
+    print("[ASSET-STYLE] 风格圣经已生成并锁定")
+    print(f"  名称     : {sb.name}")
+    print(f"  色板     : {sb.palette}")
+    print(f"  强调色   : {sb.accent}")
+    print(f"  线条     : {sb.line}")
+    print(f"  光影     : {sb.lighting}")
+    print(f"  构图     : {sb.composition}")
+    print(f"  负面词   : {sb.negative_prompts}")
+    print(f"  已锁定   : {sb.locked}（禁止中途改皮，保证一致性）")
+    print(f"  存档     : {out}")
+    return 0
+
+
+def cmd_asset_gen(args):
+    """生成一项 2D 资产：ImageGenAdapter 出图 → 入库 QA → 落工件。"""
+    import json
+    from pathlib import Path
+    from pipeline.style_bible import StyleBible
+    from pipeline.asset_factory import AssetFactory, AssetSpec
+
+    style = None
+    spath = getattr(args, "style", None) or "evidence/style_bible.json"
+    if Path(spath).exists():
+        style = StyleBible.from_dict(json.load(open(spath, encoding="utf-8")))
+        if not style.locked:
+            style.lock()
+    else:
+        print(f"[ASSET-GEN] 警告：风格圣经 {spath} 不存在，资产将不锚定风格（一致性弱）")
+
+    spec = AssetSpec(
+        asset_type=getattr(args, "type", "icon") or "icon",
+        name=getattr(args, "name", "asset") or "asset",
+        width=int(getattr(args, "width", 512) or 512),
+        height=int(getattr(args, "height", 512) or 512),
+        require_alpha=bool(getattr(args, "require_alpha", False)),
+        frames=int(getattr(args, "frames", 1) or 1),
+        style_ref=style.name if style else "none",
+        prompt=getattr(args, "prompt", "") or "",
+    )
+    af = AssetFactory()
+    rec = af.generate(spec, style=style, backend=getattr(args, "backend", None),
+                      seed=getattr(args, "seed", None),
+                      transparent=bool(getattr(args, "require_alpha", False)))
+    out_dir = getattr(args, "out", None) or "output/w5_assets"
+    paths = af.save(rec, out_dir)
+
+    print("=" * 70)
+    print(f"[ASSET-GEN] {rec.spec.asset_type}/{rec.spec.name}")
+    print(f"  后端           : {rec.backend}")
+    print(f"  是否 AI 生成   : {rec.is_ai_generated} ｜ 是否程序化占位: {rec.is_procedural_placeholder}")
+    print(f"  尺寸/透明      : {rec.width}x{rec.height} ｜ alpha={rec.has_alpha}")
+    print(f"  内容哈希       : {rec.content_hash}")
+    if rec.provenance:
+        print(f"  溯源           : 模型={rec.provenance.get('model')} "
+              f"seed={rec.provenance.get('seed')} 端点={rec.provenance.get('endpoint')}")
+    print(f"  入库 QA        : {'通过' if rec.qa.passed else '未通过'}")
+    for k, v in rec.qa.scores.items():
+        print(f"    - {k:16s}: {v}")
+    if rec.qa.needs_vlm:
+        print(f"  需 VLM 复核    : {rec.qa.needs_vlm}（如实标注，不假装已判定）")
+    if rec.needs_runtime_tool:
+        print(f"  ⚠ 诚实标注     : 无可用 AIGC 后端，本资产为程序化占位（needs_runtime_tool={rec.needs_runtime_tool}）")
+    for w in rec.provenance.get("warnings", []) if isinstance(rec.provenance, dict) else []:
+        print(f"  ⚠ {w}")
+    print(f"  落盘           : {paths['png']}")
+    return 0 if rec.qa.passed else 1
+
+
+def cmd_asset_verify(args):
+    """仅对一张已有 PNG 跑入库 QA（不重新生成）。"""
+    import json
+    from pathlib import Path
+    from pipeline.style_bible import StyleBible
+    from pipeline.asset_factory import AssetQA, AssetSpec
+    data = open(getattr(args, "file"), "rb").read()
+    style = None
+    spath = getattr(args, "style", None) or "evidence/style_bible.json"
+    if Path(spath).exists():
+        style = StyleBible.from_dict(json.load(open(spath, encoding="utf-8")))
+    spec = AssetSpec(
+        asset_type=getattr(args, "type", "icon") or "icon",
+        name=getattr(args, "name", "asset") or "asset",
+        width=int(getattr(args, "width", 512) or 512),
+        height=int(getattr(args, "height", 512) or 512),
+        require_alpha=bool(getattr(args, "require_alpha", False)),
+    )
+    rep = AssetQA.check(data, spec, style, is_ai_generated=False)
+    print("=" * 70)
+    print(f"[ASSET-VERIFY] {getattr(args, 'file')}")
+    print(f"  结果     : {'通过' if rep.passed else '未通过'}")
+    for k, v in rep.scores.items():
+        print(f"    - {k:16s}: {v}")
+    for k, v in rep.details.items():
+        print(f"    · {k:16s}: {v}")
+    if rep.needs_vlm:
+        print(f"  需 VLM 复核: {rep.needs_vlm}")
+    return 0 if rep.passed else 1
+
+
+def cmd_agent_cards(args):
+    """列出已注册专家卡与 82 位目标的真实缺口（不做任何美化）。"""
+    from core.role_cards import all_cards, card_counts, AgentTier, load_all_role_cards
+    load_all_role_cards()
+    counts = card_counts()
+    print("[AGENT-CARDS] 专家角色卡注册表（真实计数，非目标值）")
+    print(f"  已注册 {counts['TOTAL']} / 目标 {counts['TARGET']} ｜ 缺口 {counts['MISSING']} ｜ "
+          f"LEAD {counts['LEAD']} / SPECIALIST {counts['SPECIALIST']} / ADVISOR {counts['ADVISOR']}")
+    for card in all_cards():
+        print(f"  - [{card.tier.value:10s}] {card.card_id:28s} {card.name:6s} ｜ 阶段: {','.join(card.phases)}")
+        print(f"      职责: {card.duty}")
+    if counts["MISSING"] > 0:
+        print(f"  [HONEST] 仍有 {counts['MISSING']} 张卡未注册，W2 补齐前不得宣称 82 位专家可用。")
+
+def cmd_agent_run(args):
+    """激活一位专家执行任务。无 LLM 时返回 NEEDS_LLM_CREDENTIALS，不产出模板文本。"""
+    import json as _json
+    from core.agent_runtime import get_runtime, AgentStatus, NEEDS_LLM_CREDENTIALS
+    from core.role_cards import get_card
+
+    runtime = get_runtime(provider=getattr(args, "llm_provider", "auto") or "auto",
+                          model=getattr(args, "llm_model", None))
+    card_id = args.card
+
+    if card_id == "--preflight" or getattr(args, "preflight", False):
+        pre = runtime.preflight()
+        print("[AGENT-RUN] 环境自检")
+        print(f"  LLM 就绪: {pre['llm_ready']} ｜ 可用 Provider: {pre['available_providers'] or '无'}")
+        print(f"  status: {pre['status']}")
+        if pre["how_to_fix"]:
+            print(f"  修复方式: {pre['how_to_fix']}")
+        return
+
+    card = get_card(card_id)
+    if card is None:
+        print(f"[AGENT-RUN] ❌ 未注册的专家卡: {card_id}（用 `agent-cards` 查看已注册卡片）")
+        raise SystemExit(2)
+
+    context = {}
+    if getattr(args, "context", ""):
+        try:
+            context = _json.loads(args.context)
+        except _json.JSONDecodeError as exc:
+            print(f"[AGENT-RUN] ❌ --context 不是合法 JSON: {exc}")
+            raise SystemExit(2)
+
+    out = runtime.run(card_id, args.task, context)
+    print(f"[AGENT-RUN] 专家: {card.name} ({card.card_id}) ｜ 档位: {card.tier.value}")
+    print(f"  status: {out.status}")
+    if out.status == NEEDS_LLM_CREDENTIALS:
+        print("  [HONEST] 没有可用的 LLM 后端，本次没有产出任何专家结论。")
+        print("           不会用模板文本冒充该专家的产出。配置 API Key 后重试。")
+        raise SystemExit(3)
+    if out.status != AgentStatus.OK:
+        for err in out.errors:
+            print(f"  - {err}")
+        raise SystemExit(1)
+    print(f"  provider/model: {out.provider}/{out.model} ｜ tokens: {out.input_tokens}/{out.output_tokens} ｜ {out.latency_ms}ms")
+    print("  --- payload ---")
+    print(_json.dumps(out.payload, ensure_ascii=False, indent=2))
+
+# 命令 -> 处理函数。任一命令都必须经此表派发，
+# 由 RunService.dispatch_tool 统一写入审计链，杜绝绕过契约与发布门禁的旁路调用。
+COMMAND_TABLE = {
+    "agents": cmd_agents, "teams": cmd_teams, "skills": cmd_skills, "hooks": cmd_hooks,
+    "route": cmd_route, "contract": cmd_contract, "distill": cmd_distill, "qa": cmd_qa,
+    "ccgs": cmd_ccgs, "lore": cmd_lore, "evaluate": cmd_evaluate, "playability": cmd_playability,
+    "fidelity": cmd_fidelity, "probe": cmd_probe, "drive": cmd_drive, "diff": cmd_diff,
+    "reverse": cmd_reverse, "fuzz": cmd_fuzz, "solver": cmd_solver, "sandbox": cmd_sandbox,
+    "slice": cmd_slice, "heal": cmd_heal, "scene": cmd_scene, "create": cmd_create,
+    "gdd": cmd_gdd, "llm": cmd_llm, "asset3d": cmd_asset3d, "balance": cmd_balance,
+    "distribute": cmd_distribute, "live-smoke": cmd_live_smoke,
+    "promote": cmd_promote, "rollback": cmd_rollback, "release-drill": cmd_drill,
+    "submit": cmd_submit,
+    "channel-doctor": cmd_channel_doctor,
+    "delivery-audit": cmd_delivery_audit, "delivery-pack": cmd_delivery_pack,
+    "live-doctor": cmd_live_doctor,
+    "live-flow": cmd_live_flow,
+    "review-create": cmd_review_create, "review-approve": cmd_review_approve,
+    "review-reject": cmd_review_reject, "review-status": cmd_review_status,
+    "player-doctor": cmd_player_doctor, "player-cohort": cmd_player_cohort,
+    "env-check": cmd_env_check,
+    "spec": cmd_spec, "serve": cmd_serve, "mcp": cmd_mcp,
+    "rig": cmd_rig, "audio": cmd_audio, "ast": cmd_ast, "netcode": cmd_netcode,
+    "vlm": cmd_vlm, "profile": cmd_profile, "coroner": cmd_coroner, "toolchain": cmd_toolchain,
+    "hypercasual": cmd_hypercasual, "commercial": cmd_commercial, "redteam": cmd_redteam,
+    "logistics": cmd_logistics, "autotile": cmd_autotile, "flowfield": cmd_flowfield,
+    "ecs": cmd_ecs, "techtree": cmd_techtree, "mindustry": cmd_mindustry,
+    "3d-pipeline": cmd_3d_pipeline, "doctor": cmd_doctor,
+    "agent-cards": cmd_agent_cards, "agent-run": cmd_agent_run,
+    "llm-import": cmd_llm_import, "llm-status": cmd_llm_status,
+    "skill-list": cmd_skill_list, "skill-run": cmd_skill_run,
+    "skill-verify-c": cmd_skill_verify_c, "skill-audit-c": cmd_skill_audit_c,
+    "skill-run-b": cmd_skill_run_b, "skill-verify-b": cmd_skill_verify_b,
+    "skill-audit-b": cmd_skill_audit_b,
+    "asset-style": cmd_asset_style, "asset-gen": cmd_asset_gen,
+    "asset-verify": cmd_asset_verify,
+    "asset-audio": cmd_asset_audio, "asset-audio-verify": cmd_asset_audio_verify,
+    "playtest": cmd_playtest,
+    "vertical-slices": cmd_vertical_slices,
+    "autonomous": cmd_autonomous,
+}
+
+
 def main():
+    # 显式加载 .env，不依赖任何模块的导入副作用：
+    # 渠道凭据、沙箱地址、遥测端点都从 os.environ 读取，
+    # 若 .env 没加载就会出现「明明填了却报未配置」。
+    try:
+        from core.llm_gateway import ensure_env_loaded
+        ensure_env_loaded()
+    except Exception:  # 加载失败不阻断 CLI，后续命令会如实报未配置
+        pass
+
     parser = argparse.ArgumentParser(description="Game Dev Agent Studios 统一管理 CLI (v9.0 First-Principles & Adversarial Red-Team Edition)")
     
     # 全局/可复用 LLM 参数
@@ -722,8 +2025,15 @@ def main():
 
     p_asset3d = sub.add_parser("asset3d", parents=[llm_parent], help="工业级 3D 资产标准生成与 glTF 桥接")
     p_asset3d.add_argument("--type", type=str, default="turret", choices=["turret", "mech", "crate", "crystal"], help="资产类型")
-    p_asset3d.add_argument("--format", type=str, default="gltf", choices=["gltf", "obj"], help="导出格式")
+    p_asset3d.add_argument("--format", type=str, default="gltf", choices=["gltf", "obj"], help="导出格式（仅 M3 无贴图路径使用）")
     p_asset3d.add_argument("--output", type=str, default="", help="输出目录")
+    p_asset3d.add_argument("--textured", action="store_true", help="W6：生成带 PBR 五通道贴图的 3D 资产（AI albedo + 程序化 4 通道）")
+    p_asset3d.add_argument("--backend", type=str, default=None,
+                           choices=["comfyui_local", "cloud_api", "procedural_placeholder"],
+                           help="albedo 后端；缺省 auto（有 AIGC 后端走 AI，否则程序化占位）")
+    p_asset3d.add_argument("--seed", type=int, default=None, help="确定性种子（albedo/程序化复用）")
+    p_asset3d.add_argument("--verify-godot", action="store_true", help="M4：在真 Godot 4.7.2 中导入校验（真机证据）")
+    p_asset3d.add_argument("--style", type=str, default="evidence/style_bible.json", help="风格圣经路径（albedo prompt 引用）")
 
     p_balance = sub.add_parser("balance", parents=[llm_parent], help="宏观数值仿真与自适应经济审计")
     p_balance.add_argument("--trials", type=int, default=10000, help="抽卡蒙特卡洛仿真次数")
@@ -736,6 +2046,106 @@ def main():
     p_distribute.add_argument("--all", dest="dist_all", action="store_true", help="构建全部平台分发包 (等价于 --platform all)")
     p_distribute.add_argument("--input", type=str, default="", help="待分发主 HTML 文件路径")
     p_distribute.add_argument("--output", type=str, default="", help="分发包输出目录")
+    p_distribute.add_argument("--godot-project", dest="godot_project", type=str, default="",
+                              help="Godot 工程目录（含 project.godot）；指定后先真实导出独立包再分发，缺模板时如实退回 Web 壳")
+    p_distribute.add_argument("--run-id", dest="run_id", type=str, default="",
+                              help="分发必须挂接到某次已通过门禁的运行（其 ReleaseManifest 存在），否则视为旁路发布被拒绝")
+
+    p_live = sub.add_parser("live-smoke", help="支付/广告/联机沙箱真实链路冒烟 (缺凭据如实报缺失)")
+    p_live.add_argument("--kind", type=str, default="all",
+                        choices=["all", "payment", "ads", "multiplayer"], help="冒烟的在线服务类型")
+
+    p_promote = sub.add_parser("promote", help="发布通道晋升 (staging 需 qa_manager + 真实冒烟；production 需 release_manager)")
+    p_promote.add_argument("--run-id", dest="run_id", type=str, required=True, help="目标运行 ID")
+    p_promote.add_argument("--channel", type=str, default="staging", choices=["staging", "production"], help="晋升目标通道")
+    p_promote.add_argument("--role", type=str, required=True, help="审批角色 (staging=qa_manager / production=release_manager)")
+    p_promote.add_argument("--actor", type=str, required=True, help="审批人标识")
+
+    p_rollback = sub.add_parser("rollback", help="发布回滚 (记录决策与审计，不谎称已执行远端下架)")
+    p_rollback.add_argument("--run-id", dest="run_id", type=str, required=True, help="目标运行 ID")
+    p_rollback.add_argument("--reason", type=str, required=True, help="回滚原因")
+    p_rollback.add_argument("--role", type=str, default="release_manager", help="操作角色")
+    p_rollback.add_argument("--actor", type=str, required=True, help="操作人标识")
+
+    sub.add_parser("release-drill", help="发布门禁故障注入演练 (故意制造违规，断言必须被拦)")
+
+    p_submit = sub.add_parser("submit", help="第三方渠道上架包 + 提交前门禁 (默认 dry-run，缺凭据如实报缺失)")
+    p_submit.add_argument("--channel", type=str, required=True, choices=["wechat", "steam", "itch", "pwa"], help="目标渠道")
+    p_submit.add_argument("--run-id", dest="run_id", type=str, default="",
+                          help="必须挂接到某次已通过门禁的运行（其 ReleaseManifest 存在），否则视为旁路上架被拒绝")
+    p_submit.add_argument("--metadata", type=str, default="", help="商店元数据 JSON 路径")
+    p_submit.add_argument("--dist", type=str, default="", help="分发包根目录")
+    p_submit.add_argument("--assets", type=str, default="", help="商店素材目录（图标/截图/封面）")
+    p_submit.add_argument("--execute", action="store_true", help="真实调用官方上传器（默认仅组装命令不执行）")
+
+    p_cdoc = sub.add_parser("channel-doctor", help="外部渠道体检：列出上架还缺什么、由谁补、怎么补（不打印凭据值）")
+    p_cdoc.add_argument("--channel", type=str, default="", choices=["", "wechat", "steam", "itch", "pwa"], help="只体检指定渠道，留空则体检全部")
+    p_cdoc.add_argument("--metadata", type=str, default="", help="商店元数据 JSON 路径")
+    p_cdoc.add_argument("--dist", type=str, default="", help="分发包根目录")
+    p_cdoc.add_argument("--assets", type=str, default="", help="商店素材目录")
+    p_cdoc.add_argument("--json", action="store_true", help="输出结构化 JSON")
+
+    p_daudit = sub.add_parser("delivery-audit", help="交付卫生审计：扫描目录是否存在秘密文件与明文密钥")
+    p_daudit.add_argument("--path", type=str, default="", help="待交付目录，默认当前仓库根目录")
+    p_daudit.add_argument("--no-content", action="store_true", help="只按文件名规则检查，不扫文件内容")
+    p_daudit.add_argument("--strict", action="store_true", help="严格模式：测试固件与第三方文档的命中也计入阻断")
+    p_daudit.add_argument("--json", action="store_true", help="输出结构化 JSON")
+
+    p_dpack = sub.add_parser("delivery-pack", help="生成脱敏交付副本：排除秘密文件后复检自证")
+    p_dpack.add_argument("--out", type=str, required=True, help="脱敏副本输出目录")
+    p_dpack.add_argument("--src", type=str, default="", help="源目录，默认当前仓库根目录")
+    p_dpack.add_argument("--include-output", dest="include_output", action="store_true", help="一并复制 output/dist/build（默认排除）")
+    p_dpack.add_argument("--json", action="store_true", help="输出结构化 JSON")
+
+    p_ldoc = sub.add_parser("live-doctor", help="线上服务体检：支付/广告/联机沙箱 + Staging（服务端须自证身份）")
+    p_ldoc.add_argument("--kind", type=str, default="", choices=["", "payment", "ads", "multiplayer", "staging"], help="只体检指定服务")
+    p_ldoc.add_argument("--timeout", type=float, default=8.0, help="单次探测超时秒数")
+    p_ldoc.add_argument("--emit-reference", dest="emit_reference", type=str, default="", help="写出 /health 参考服务端到该目录")
+    p_ldoc.add_argument("--json", action="store_true", help="输出结构化 JSON")
+
+    p_lflow = sub.add_parser("live-flow", help="线上服务真实业务链路冒烟（下单/广告/建房，非仅探活）")
+    p_lflow.add_argument("--kind", type=str, default="all",
+                         choices=["all", "payment", "ads", "multiplayer"], help="只跑指定服务链路")
+    p_lflow.add_argument("--timeout", type=float, default=8.0, help="单次请求超时秒数")
+    p_lflow.add_argument("--json", action="store_true", help="输出结构化 JSON")
+
+    p_rcreate = sub.add_parser("review-create", help="建立人工复核工单（记录工件 sha256）")
+    p_rcreate.add_argument("--run-id", dest="run_id", type=str, required=True, help="关联的运行 ID")
+    p_rcreate.add_argument("--kind", type=str, required=True, choices=["art", "audio", "release"], help="复核类型")
+    p_rcreate.add_argument("--artifact", type=str, required=True, help="待复核工件路径")
+    p_rcreate.add_argument("--notes", type=str, default="", help="备注")
+
+    for name, help_text in (("review-approve", "人工复核通过（必须署名）"),
+                            ("review-reject", "人工复核驳回/返工（必须署名并写原因）")):
+        p_rev = sub.add_parser(name, help=help_text)
+        p_rev.add_argument("--ticket-id", dest="ticket_id", type=str, required=True, help="工单 ID")
+        p_rev.add_argument("--reviewer", type=str, required=True, help="复核人署名")
+        p_rev.add_argument("--notes", type=str, default="", help="复核意见")
+        p_rev.add_argument("--item", action="append", help="逐项结论，格式 --item \"检查项=pass\"，可重复")
+        if name == "review-reject":
+            p_rev.add_argument("--reject", action="store_true", help="直接驳回（默认只要求返工）")
+
+    p_rstatus = sub.add_parser("review-status", help="查询运行是否具备生产放行所需的人工复核")
+    p_rstatus.add_argument("--run-id", dest="run_id", type=str, required=True, help="目标运行 ID")
+
+    p_pdoc = sub.add_parser("player-doctor", help="真实玩家验证体检：遥测、试点队列、事件真实性")
+    p_pdoc.add_argument("--events", type=str, default="", help="事件 JSONL 文件路径")
+    p_pdoc.add_argument("--json", action="store_true", help="输出结构化 JSON")
+
+    p_pcohort = sub.add_parser("player-cohort", help="登记真实玩家试点队列")
+    p_pcohort.add_argument("--cohort-id", dest="cohort_id", type=str, required=True, help="试点标识")
+    p_pcohort.add_argument("--source", type=str, required=True, help="玩家来源，如 内部员工 / 社群招募 / 商店测试渠道")
+    p_pcohort.add_argument("--size", type=int, required=True, help="招募人数")
+    p_pcohort.add_argument("--window-days", dest="window_days", type=int, default=7, help="观察时间窗天数")
+    p_pcohort.add_argument("--contact", type=str, default="", help="招募负责人")
+    p_pcohort.add_argument("--notes", type=str, default="", help="备注")
+
+    sub_check = sub.add_parser("env-check", help="环境自检总表：汇总四个缺口还差什么（不打印凭据值）")
+    sub_check.add_argument("--no-probe", dest="no_probe", action="store_true", help="跳过真实网络探测，只查配置是否存在")
+    sub_check.add_argument("--json", action="store_true", help="输出结构化 JSON")
+    sub_check.add_argument("--run-mode", dest="run_mode", type=str, default=None,
+                           choices=["local", "platform"],
+                           help="运行模式：local=只体检本地开发所需（缺省）；platform=含渠道/沙箱/Staging/遥测")
 
     p_spec = sub.add_parser("spec", help="输入想法，生成全套4大方案与技术文档")
     p_spec.add_argument("--title", type=str, required=True, help="游戏名称或想法标题")
@@ -803,59 +2213,151 @@ def main():
     p_doc = sub.add_parser("doctor", help="全面体检宿主机环境与运行时工具链就绪度 (Doctor)")
     p_doc.add_argument("--target", type=str, default="web", choices=["web", "godot", "wasm_rust", "llm"], help="目标技术栈预检")
 
+    # W1 专家 Agent 运行时
+    sub.add_parser("agent-cards", help="列出已注册专家角色卡与 82 位目标的真实缺口")
+    p_arun = sub.add_parser("agent-run", parents=[llm_parent], help="激活一位专家执行任务（无 LLM 时诚实报 NEEDS_LLM_CREDENTIALS）")
+    p_arun.add_argument("--card", type=str, default="", help="专家卡 id（如 lead_producer）")
+    p_arun.add_argument("--task", type=str, default="", help="交给该专家的任务描述")
+    p_arun.add_argument("--context", type=str, default="{}", help="上下文 JSON 字符串")
+    p_arun.add_argument("--preflight", action="store_true", help="只做环境自检，不调用专家")
+
+    # LLM 端点池（免费额度）导入与真实探测
+    p_limp = sub.add_parser("llm-import", help="从本地 JSON 导入 LLM 端点池（含密钥，写入 gitignore 的 config/）")
+    p_limp.add_argument("--file", type=str, required=True, help="端点 JSON 文件路径")
+    sub.add_parser("llm-status", help="真实探测每个 LLM 端点的连通性（不发请求不记可用）")
+
+    # L2 技能库（W3 适配状态）
+    sub.add_parser("skill-list", help="列出 114 项 L2 技能的真实适配进度（分母=114 不可少）")
+
+    p_srun = sub.add_parser("skill-run", help="真实跑一项 C 类技能（需可用 LLM 端点，不跑不许说能用）")
+    p_srun.add_argument("--skill", type=str, required=True, help="技能 id，如 core_loop_design")
+    p_srun.add_argument("--task", type=str, default="", help="具体任务描述；留空用内置默认任务")
+    p_srun.add_argument("--provider", type=str, default="auto")
+    p_srun.add_argument("--model", type=str, default=None)
+    p_vc = sub.add_parser("skill-verify-c", help="批量真实跑通 24 项 C 类技能并落证据（通过的才注册）")
+    p_vc.add_argument("--skill", type=str, default=None, help="只跑指定技能，默认全跑")
+    p_vc.add_argument("--model", type=str, default=None, help="指定端点池里的具体模型 id，会记进证据")
+    sub.add_parser("skill-audit-c",
+                   help="离线复校验：历史通过的 payload 在当前契约下是否仍成立（不调 LLM）")
+    p_vb = sub.add_parser("skill-verify-b", help="批量真实运行 B 类确定性算法并落证据（验收通过的才注册）")
+    p_vb.add_argument("--skill", type=str, default=None, help="只跑指定技能，默认全跑")
+    p_rb = sub.add_parser("skill-run-b", help="真实运行一项 B 类技能（确定性，不调 LLM）")
+    p_rb.add_argument("--skill", type=str, required=True, help="技能 id，如 a_star_pathfinding")
+    p_rb.add_argument("--params", type=str, default="", help="JSON 参数；留空用内置默认参数")
+    sub.add_parser("skill-audit-b", help="离线复验：B 类历史通过的 payload 在当前契约下是否仍成立")
+
+    # ── W5：2D 资产工厂 ─────────────────────────────────────────────────────
+    p_as = sub.add_parser("asset-style",
+                          help="初始化并锁定风格圣经 StyleBible（后续资产 prompt 必须引用）")
+    p_as.add_argument("--name", type=str, default="default", help="风格名")
+    p_as.add_argument("--seed", type=int, default=0, help="确定性派生色板种子")
+    p_as.add_argument("--palette", type=str, default=None,
+                      help="显式色板（逗号分隔 hex，如 #1e2a4a,#d9bb74）；缺省确定性派生")
+    p_as.add_argument("--out", type=str, default="evidence/style_bible.json", help="存档路径")
+    p_ag = sub.add_parser("asset-gen",
+                           help="生成一项 2D 资产：ImageGenAdapter 出图 → 入库 QA → 落工件")
+    p_ag.add_argument("--type", type=str, default="icon",
+                      choices=["character", "enemy", "item", "tile", "ui", "background", "icon", "store"],
+                      help="资产类型")
+    p_ag.add_argument("--name", type=str, default="asset", help="资产名")
+    p_ag.add_argument("--width", type=int, default=512, help="宽（会自动对齐到 8 的倍数）")
+    p_ag.add_argument("--height", type=int, default=512, help="高")
+    p_ag.add_argument("--require-alpha", action="store_true", help="要求透明通道")
+    p_ag.add_argument("--frames", type=int, default=1, help="帧数（W5 单帧；>1 仅记录）")
+    p_ag.add_argument("--prompt", type=str, default="", help="正向提示词（建议描述资产内容）")
+    p_ag.add_argument("--style", type=str, default="evidence/style_bible.json", help="风格圣经路径")
+    p_ag.add_argument("--seed", type=int, default=None, help="随机种子（程序化/ComfyUI 复用）")
+    p_ag.add_argument("--backend", type=str, default=None,
+                      choices=["comfyui_local", "cloud_api", "procedural_placeholder"],
+                      help="指定后端；缺省按优先级自动选（云→本地 ComfyUI→程序化占位）")
+    p_ag.add_argument("--out", type=str, default="output/w5_assets", help="输出目录")
+    p_av = sub.add_parser("asset-verify", help="仅对已有 PNG 跑入库 QA（不重新生成）")
+    p_av.add_argument("--file", type=str, required=True, help="待测 PNG 路径")
+    p_av.add_argument("--type", type=str, default="icon", help="资产类型")
+    p_av.add_argument("--name", type=str, default="asset", help="资产名")
+    p_av.add_argument("--width", type=int, default=512, help="规格宽")
+    p_av.add_argument("--height", type=int, default=512, help="规格高")
+    p_av.add_argument("--require-alpha", action="store_true", help="规格要求透明通道")
+    p_av.add_argument("--style", type=str, default="evidence/style_bible.json", help="风格圣经路径")
+
+    p_aa = sub.add_parser("asset-audio", parents=[llm_parent],
+                          help="W7：真实合成音频资产（SFX/BGM 16-bit PCM WAV，程序化合成）")
+    p_aa.add_argument("--kind", type=str, default="laser",
+                      help="音效类型 laser/hit/explosion/coin/ui_click/step/powerup，"
+                           "或 BGM 调式名 pentatonic/dorian/harmonic_minor/cyberpunk")
+    p_aa.add_argument("--name", type=str, default="", help="资产名（缺省按 kind 推导）")
+    p_aa.add_argument("--duration", type=float, default=1.0, help="目标时长秒（BGM 据此控长）")
+    p_aa.add_argument("--sample-rate", type=int, default=44100, help="采样率 Hz")
+    p_aa.add_argument("--theme", type=str, default="dorian", help="BGM 默认调式（当 kind 非已知调式时回退）")
+    p_aa.add_argument("--bpm", type=int, default=120, help="BGM 速度")
+    p_aa.add_argument("--backend", type=str, default=None,
+                      choices=["procedural_synth", "cloud_audio"],
+                      help="生成后端；缺省 auto（当前仅程序化合成可用，cloud_audio 未接入需 NEEDS_RUNTIME_TOOL）")
+    p_aa.add_argument("--seed", type=int, default=None, help="确定性种子")
+    p_aa.add_argument("--output", type=str, default="", help="输出目录（缺省 output/assets/audio）")
+
+    p_aav = sub.add_parser("asset-audio-verify", parents=[llm_parent],
+                           help="W7：仅对已有 WAV 跑入库 QA（独立解码校验，不重新生成）")
+    p_aav.add_argument("--file", type=str, required=True, help="待测 WAV 路径")
+    p_aav.add_argument("--kind", type=str, default="", help="可选：资产 kind（用于时长/语义 QA 对照）")
+
+    p_playtest = sub.add_parser("playtest", parents=[llm_parent],
+                                help="W8：自动试玩闭环（真实浏览器加载 + 多轮 episode 驱动 + 诚实 verdict）")
+    p_playtest.add_argument("--target", type=str, default="",
+                            help="本地 HTML 试玩目标（必填；远程 URL 需先镜像为本地文件）")
+    p_playtest.add_argument("--url", type=str, default="",
+                            help="别名：--target 的等价项（远程 URL 当前不支持，需本地文件）")
+    p_playtest.add_argument("--episodes", type=int, default=3,
+                            help="试玩轮数（多轮聚合真实证据）")
+    p_playtest.add_argument("--ticks", type=int, default=20,
+                            help="每轮自动输入步数（≈ ticks×0.15s 驱动时长）")
+    p_playtest.add_argument("--seed", type=int, default=0, help="确定性随机种子")
+    p_playtest.add_argument("--out", type=str, default="",
+                            help="EvidencePack 输出目录（缺省 output/playtest）")
+    p_playtest.add_argument("--headless", dest="headless", action="store_true",
+                            default=True, help="无头运行（默认开）")
+    p_playtest.add_argument("--no-headless", dest="headless", action="store_false",
+                            help="有头运行（需本机显示环境；默认无头）")
+
+    p_vs = sub.add_parser("vertical-slices", parents=[llm_parent],
+                          help="W9：八垂直切片端到端验证（生成→接W7音频→W8真实试玩→诚实 verdict）")
+    p_vs.add_argument("--slice", type=str, default="",
+                      help="指定单个切片 id（缺省验证全部 8 个）；可用 id 见 pipeline/vertical_slices.py")
+    p_vs.add_argument("--episodes", type=int, default=2, help="每片试玩轮数")
+    p_vs.add_argument("--ticks", type=int, default=20, help="每轮自动输入步数（≈ ticks×0.15s）")
+    p_vs.add_argument("--seed", type=int, default=42, help="确定性随机种子")
+    p_vs.add_argument("--out", type=str, default="", help="切片输出根目录（缺省 output/slices）")
+    p_vs.add_argument("--no-audio", dest="no_audio", action="store_true",
+                      help="不接入 W7 程序化音频（仅验证运行/试玩链路）")
+    p_vs.add_argument("--headless", dest="headless", action="store_true",
+                      default=True, help="无头运行（默认开）")
+
+    p_auton = sub.add_parser("autonomous", parents=[llm_parent],
+                             help="W10：长时程自主生产（一句话意图→无人值守→可上架包；仅三处停）")
+    p_auton.add_argument("--title", type=str, default="", help="一句话意图中的游戏标题（必填）")
+    p_auton.add_argument("--genre", type=str, default="节奏",
+                         help="游戏类型（节奏/卡牌/弹幕/赛车/工厂/地牢/3d/叙事 等，缺省节奏）")
+    p_auton.add_argument("--rules", type=str, default="", help="玩法规则/约束描述（可选）")
+    p_auton.add_argument("--budget", type=float, default=100.0, help="预算上限 USD（超预算即暂停上报）")
+    p_auton.add_argument("--episodes", type=int, default=2, help="真机试玩轮数")
+    p_auton.add_argument("--ticks", type=int, default=20, help="每轮自动输入步数（≈ ticks×0.15s）")
+    p_auton.add_argument("--seed", type=int, default=42, help="确定性随机种子")
+    p_auton.add_argument("--no-resume", dest="no_resume", action="store_true",
+                         help="禁用断点续跑（每次全新执行，供测试/演练）")
+    p_auton.add_argument("--cost-table", type=str, default="",
+                         help="注入成本表 JSON（如 '{\"assemble.build\":999}'），触发超预算暂停验证")
+    p_auton.add_argument("--art-backend", type=str, default=None,
+                         choices=["comfyui_local", "cloud_api", "procedural_placeholder"],
+                         help="美术后端；缺省 auto（cloud→本机 ComfyUI→程序化占位）")
+    # 注意：--mode 已被 llm_parent 占用（fast/llm/hybrid 生成模式），故用 --run-mode
+    p_auton.add_argument("--run-mode", dest="run_mode", type=str, default=None,
+                         choices=["local", "platform"],
+                         help="运行模式：local=本地开发（不要求任何渠道/线上配置，缺省）；"
+                              "platform=平台对接（要求渠道凭据+三类沙箱+Staging+遥测齐全，缺即阻断）")
+
     args = parser.parse_args()
-    if args.command == "agents": cmd_agents(args)
-    elif args.command == "teams": cmd_teams(args)
-    elif args.command == "skills": cmd_skills(args)
-    elif args.command == "hooks": cmd_hooks(args)
-    elif args.command == "route": cmd_route(args)
-    elif args.command == "contract": cmd_contract(args)
-    elif args.command == "distill": cmd_distill(args)
-    elif args.command == "qa": cmd_qa(args)
-    elif args.command == "ccgs": cmd_ccgs(args)
-    elif args.command == "lore": cmd_lore(args)
-    elif args.command == "evaluate": cmd_evaluate(args)
-    elif args.command == "playability": cmd_playability(args)
-    elif args.command == "fidelity": cmd_fidelity(args)
-    elif args.command == "probe": cmd_probe(args)
-    elif args.command == "drive": cmd_drive(args)
-    elif args.command == "diff": cmd_diff(args)
-    elif args.command == "reverse": cmd_reverse(args)
-    elif args.command == "fuzz": cmd_fuzz(args)
-    elif args.command == "solver": cmd_solver(args)
-    elif args.command == "sandbox": cmd_sandbox(args)
-    elif args.command == "slice": cmd_slice(args)
-    elif args.command == "heal": cmd_heal(args)
-    elif args.command == "scene": cmd_scene(args)
-    elif args.command == "create": cmd_create(args)
-    elif args.command == "gdd": cmd_gdd(args)
-    elif args.command == "llm": cmd_llm(args)
-    elif args.command == "asset3d": cmd_asset3d(args)
-    elif args.command == "balance": cmd_balance(args)
-    elif args.command == "distribute": cmd_distribute(args)
-    elif args.command == "spec": cmd_spec(args)
-    elif args.command == "serve": cmd_serve(args)
-    elif args.command == "mcp": cmd_mcp(args)
-    elif args.command == "rig": cmd_rig(args)
-    elif args.command == "audio": cmd_audio(args)
-    elif args.command == "ast": cmd_ast(args)
-    elif args.command == "netcode": cmd_netcode(args)
-    elif args.command == "vlm": cmd_vlm(args)
-    elif args.command == "profile": cmd_profile(args)
-    elif args.command == "coroner": cmd_coroner(args)
-    elif args.command == "toolchain": cmd_toolchain(args)
-    elif args.command == "hypercasual": cmd_hypercasual(args)
-    elif args.command == "commercial": cmd_commercial(args)
-    elif args.command == "redteam": cmd_redteam(args)
-    elif args.command == "logistics": cmd_logistics(args)
-    elif args.command == "autotile": cmd_autotile(args)
-    elif args.command == "flowfield": cmd_flowfield(args)
-    elif args.command == "ecs": cmd_ecs(args)
-    elif args.command == "techtree": cmd_techtree(args)
-    elif args.command == "mindustry": cmd_mindustry(args)
-    elif args.command == "3d-pipeline": cmd_3d_pipeline(args)
-    elif args.command == "doctor": cmd_doctor(args)
-    else: parser.print_help()
+    # 所有旧工具统一经过 RunService 审计入口，避免任何命令旁路契约与发布门禁
+    return run_service.dispatch_tool(args.command, COMMAND_TABLE, args, parser.print_help)
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -110,16 +110,28 @@ class EnvironmentInspector:
         }
 
         # 5. Godot 4.x (第二目标引擎)
-        godot_path = shutil.which("godot") or shutil.which("godot.exe")
+        # 优先尊重显式 GODOT_PATH；其次查 PATH、项目 tools/godot，最后查
+        # Windows 常见的绿色单文件安装位置。这样 Doctor 与 GodotRuntimeAdapter
+        # 对“已安装但未入 PATH”的本机环境保持同一事实口径。
+        godot_path = os.environ.get("GODOT_PATH", "").strip()
+        if godot_path and not os.path.isfile(godot_path):
+            godot_path = ""
+        godot_path = godot_path or shutil.which("godot") or shutil.which("godot.exe")
         if not godot_path:
-            local_godot = ROOT / "tools" / "godot" / "godot.exe"
-            if local_godot.exists():
-                godot_path = str(local_godot)
+            local_candidates = [
+                ROOT / "tools" / "godot" / "godot.exe",
+                Path(r"D:\Godot\Godot_v4.7.2-stable_win64.exe"),
+                Path(r"D:\Godot\Godot_v4.7.2-stable_win64_console.exe"),
+            ]
+            for local_godot in local_candidates:
+                if local_godot.exists():
+                    godot_path = str(local_godot)
+                    break
         tools["godot"] = {
             "name": "Godot 4.x Engine",
             "required": False,
             "installed": bool(godot_path),
-            "version": "4.x" if godot_path else "",
+            "version": "4.7.2" if godot_path and "Godot_v4.7.2" in godot_path else ("4.x" if godot_path else ""),
             "executable": godot_path or "",
             "role": "第二目标：Godot 跨端导出与桌面运行"
         }

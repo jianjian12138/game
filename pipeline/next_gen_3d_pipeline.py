@@ -29,6 +29,10 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Any, Optional, Tuple
 
 ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from core.runtime_contract import inject_runtime_contract
 
 # -----------------------------------------------------------------------------
 # 1. 纯 Python 零依赖 PNG 图像生成与 PBR 物理贴图烘焙器
@@ -1162,6 +1166,12 @@ class NextGen3AShowcaseGenerator:
       updateActiveLOD();
 
       renderer.render(scene, camera);
+
+      // 把渲染器真实统计上报给运行时契约，供 WebGLRuntimeProbe 判定 M3
+      if (window.__GAME_AGENT__) {{
+        window.__GAME_AGENT__.triangles = renderer.info.render.triangles;
+        window.__GAME_AGENT__.draw_calls = renderer.info.render.calls;
+      }}
     }}
 
     requestAnimationFrame(animate);
@@ -1209,7 +1219,7 @@ class NextGen3AShowcaseGenerator:
 </body>
 </html>
 """
-        return html_content
+        return inject_runtime_contract(html_content)
 
     @classmethod
     def generate_showcase_html(cls, target_path: Optional[Path] = None) -> Path:

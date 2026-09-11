@@ -80,15 +80,55 @@ class CommercialDistributionHub:
         title: str,
         html_file: Path,
         dist_root: Path,
-        app_id: int = 480  # 480 为 Steamworks SDK 官方测试 AppID (Spacewar)
+        app_id: int = 480,  # 480 为 Steamworks SDK 官方测试 AppID (Spacewar)
+        godot_export: Optional[Dict[str, Any]] = None,
+        desktop_shell: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """构建 Steam 桌面独立分发包与 Steamworks 契约"""
+        """构建 Steam 桌面独立分发包与 Steamworks 契约
+
+        godot_export: 来自 GodotExporter.export_windows 的结果字典。
+            为 PASS 时把真实 Godot 原生 .exe/.pck 拷入并标注 godot_native=true；
+            否则退回 Web 壳打包并如实标注 godot_native=false（绝不把 web-shell 粉饰成原生）。
+        desktop_shell: 来自 DesktopShellAdapter.package_desktop_shell 的结果字典。
+            为 PASS 时把壳工程文件拷入并标注 web_in_desktop=true；与原生导出互斥，
+            绝不同时标 godot_native 与 web_in_desktop，避免粉饰。
+        """
         steam_dir = dist_root / "steam"
         steam_dir.mkdir(parents=True, exist_ok=True)
 
-        # 1. 复制游戏主 HTML
-        target_html = steam_dir / "index.html"
-        shutil.copy2(html_file, target_html)
+        # 1. 复制游戏主程序：优先级 Godot 原生导出物 > 桌面 web-shell > 退回 Web HTML 壳
+        godot_native = bool(godot_export and godot_export.get("status") == "PASS")
+        shell_native = bool(desktop_shell and desktop_shell.get("status") == "PASS")
+        if godot_native:
+            for art in godot_export.get("artifacts", []):
+                shutil.copy2(art, steam_dir / Path(art).name)
+            native_manifest = {
+                "godot_native": True,
+                "godot_version": godot_export.get("godot_version"),
+                "artifacts": [Path(a).name for a in godot_export.get("artifacts", [])],
+                "evidence": "GodotExporter.export_windows PASS；独立 .exe/.pck 为真实导出产物",
+            }
+            (steam_dir / "godot_native_manifest.json").write_text(
+                json.dumps(native_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+            files_extra = ["godot_native_manifest.json"] + [Path(a).name for a in godot_export.get("artifacts", [])]
+        elif shell_native:
+            for f in desktop_shell.get("files", []):
+                src = Path(desktop_shell["output_dir"]) / f
+                if src.is_file():
+                    shutil.copy2(src, steam_dir / Path(f).name)
+            shell_manifest = {
+                "web_in_desktop": True,
+                "framework": desktop_shell.get("framework"),
+                "files": desktop_shell.get("files", []),
+                "evidence": "DesktopShellAdapter.package_desktop_shell PASS；这是 web-in-desktop 壳，非原生游戏引擎",
+            }
+            (steam_dir / "desktop_shell_manifest.json").write_text(
+                json.dumps(shell_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+            files_extra = ["desktop_shell_manifest.json"] + [Path(f).name for f in desktop_shell.get("files", [])]
+        else:
+            target_html = steam_dir / "index.html"
+            shutil.copy2(html_file, target_html)
+            files_extra = ["index.html"]
 
         # 2. 生成 steam_appid.txt
         (steam_dir / "steam_appid.txt").write_text(str(app_id), encoding="utf-8")
@@ -147,12 +187,14 @@ class CommercialDistributionHub:
         return {
             "platform": "Steam_Desktop",
             "output_dir": str(steam_dir),
+            "godot_native": godot_native,
+            "web_in_desktop": shell_native,
             "steam_app_id": app_id,
             "achievements_count": len(achievements["achievements"]),
             "cloud_save_configured": True,
             "steampipe_configured": True,
-            "files": [
-                "index.html", "steam_appid.txt", "achievements_and_cloud.json",
+            "files": files_extra + [
+                "steam_appid.txt", "achievements_and_cloud.json",
                 "launch_game.bat", f"app_build_{app_id}.vdf", f"depot_build_{app_id + 1}.vdf"
             ]
         }
@@ -163,14 +205,50 @@ class CommercialDistributionHub:
         html_file: Path,
         dist_root: Path,
         itch_user: str = "antigravity",
-        game_slug: str = "game-showcase"
+        game_slug: str = "game-showcase",
+        godot_export: Optional[Dict[str, Any]] = None,
+        desktop_shell: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """构建 itch.io 独立分发包与 Butler CLI 自动化推送契约"""
+        """构建 itch.io 独立分发包与 Butler CLI 自动化推送契约
+
+        godot_export / desktop_shell 处理同 distribute_steam：真实原生导出物优先，
+        否则桌面 web-shell（标 web_in_desktop），再否则退回 Web 壳并如实标注。
+        """
         itch_dir = dist_root / "itch"
         itch_dir.mkdir(parents=True, exist_ok=True)
 
-        target_html = itch_dir / "index.html"
-        shutil.copy2(html_file, target_html)
+        godot_native = bool(godot_export and godot_export.get("status") == "PASS")
+        shell_native = bool(desktop_shell and desktop_shell.get("status") == "PASS")
+        if godot_native:
+            for art in godot_export.get("artifacts", []):
+                shutil.copy2(art, itch_dir / Path(art).name)
+            native_manifest = {
+                "godot_native": True,
+                "godot_version": godot_export.get("godot_version"),
+                "artifacts": [Path(a).name for a in godot_export.get("artifacts", [])],
+                "evidence": "GodotExporter.export_windows PASS；独立 .exe/.pck 为真实导出产物",
+            }
+            (itch_dir / "godot_native_manifest.json").write_text(
+                json.dumps(native_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+            files_extra = ["godot_native_manifest.json"] + [Path(a).name for a in godot_export.get("artifacts", [])]
+        elif shell_native:
+            for f in desktop_shell.get("files", []):
+                src = Path(desktop_shell["output_dir"]) / f
+                if src.is_file():
+                    shutil.copy2(src, itch_dir / Path(f).name)
+            shell_manifest = {
+                "web_in_desktop": True,
+                "framework": desktop_shell.get("framework"),
+                "files": desktop_shell.get("files", []),
+                "evidence": "DesktopShellAdapter.package_desktop_shell PASS；这是 web-in-desktop 壳，非原生游戏引擎",
+            }
+            (itch_dir / "desktop_shell_manifest.json").write_text(
+                json.dumps(shell_manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+            files_extra = ["desktop_shell_manifest.json"] + [Path(f).name for f in desktop_shell.get("files", [])]
+        else:
+            target_html = itch_dir / "index.html"
+            shutil.copy2(html_file, target_html)
+            files_extra = ["index.html"]
 
         itch_manifest = {
             "title": title,
@@ -191,10 +269,12 @@ class CommercialDistributionHub:
         return {
             "platform": "itch_io",
             "output_dir": str(itch_dir),
+            "godot_native": godot_native,
+            "web_in_desktop": shell_native,
             "user": itch_user,
             "slug": game_slug,
             "butler_supported": True,
-            "files": ["index.html", "itch.json", "butler_push.bat"]
+            "files": files_extra + ["itch.json", "butler_push.bat"]
         }
 
     @staticmethod
@@ -403,9 +483,16 @@ self.addEventListener('fetch', (e) => {{
     def distribute_all(
         title: str = "商业级独立大作",
         html_file_path: Optional[Path] = None,
-        output_root: Optional[Path] = None
+        output_root: Optional[Path] = None,
+        godot_export: Optional[Dict[str, Any]] = None,
+        desktop_shell: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
-        """一键端到端分发三端并出具合规审查报告"""
+        """一键端到端分发三端并出具合规审查报告
+
+        godot_export: 来自 GodotExporter.export_windows 的预计算结果。为 None 时由调用方决定；
+            本中枢不主动触发导出（避免重复执行耗时子进程）。为 PASS 时 Steam/itch 走原生打包，
+            否则明确退回 Web 壳并标注 godot_native=false。
+        """
         print(f"=== CommercialDistributionHub: 启动《{title}》多平台一键分发中心 ===")
         src_html = html_file_path or (ROOT / "output" / "index.html")
         if not src_html.exists():
@@ -417,17 +504,28 @@ self.addEventListener('fetch', (e) => {{
         dist_root = output_root or (ROOT / "output" / "dist")
         dist_root.mkdir(parents=True, exist_ok=True)
 
+        if godot_export is not None:
+            if godot_export.get("status") == "PASS":
+                print(f"  [GODOT PC] 独立包已就绪: {godot_export.get('export_path')}（Steam/itch 走原生打包）")
+            else:
+                print(f"  [GODOT PC] 独立包不可用（{godot_export.get('status')}）: {godot_export.get('reason')}；Steam/itch 退回 Web 壳并标注 godot_native=false")
+        if desktop_shell is not None:
+            if desktop_shell.get("status") == "PASS":
+                print(f"  [DESKTOP SHELL] 桌面壳已生成({desktop_shell.get('framework')})；Steam/itch 标 web_in_desktop=true")
+            else:
+                print(f"  [DESKTOP SHELL] 壳工程未生成（{desktop_shell.get('status')}）；Steam/itch 退回纯 Web 壳")
+
         wx_res = CommercialDistributionHub.distribute_wechat(title, src_html, dist_root)
         print(f"  [WECHAT MINI-GAME] 构建完毕 -> {wx_res['output_dir']} (4MB 合规: {wx_res['is_4mb_compliant']})")
 
-        steam_res = CommercialDistributionHub.distribute_steam(title, src_html, dist_root)
-        print(f"  [STEAM DESKTOP]   构建完毕 -> {steam_res['output_dir']} (成就项: {steam_res['achievements_count']})")
+        steam_res = CommercialDistributionHub.distribute_steam(title, src_html, dist_root, godot_export=godot_export, desktop_shell=desktop_shell)
+        print(f"  [STEAM DESKTOP]   构建完毕 -> {steam_res['output_dir']} (成就项: {steam_res['achievements_count']}, godot_native={steam_res['godot_native']}, web_in_desktop={steam_res['web_in_desktop']})")
 
         pwa_res = CommercialDistributionHub.distribute_web_pwa(title, src_html, dist_root)
         print(f"  [WEB PWA OFFLINE] 构建完毕 -> {pwa_res['output_dir']} (SW 离线缓存已注入)")
 
-        itch_res = CommercialDistributionHub.distribute_itch(title, src_html, dist_root)
-        print(f"  [ITCH.IO BUTLER]  构建完毕 -> {itch_res['output_dir']} (Butler 自动推送契约就绪)")
+        itch_res = CommercialDistributionHub.distribute_itch(title, src_html, dist_root, godot_export=godot_export, desktop_shell=desktop_shell)
+        print(f"  [ITCH.IO BUTLER]  构建完毕 -> {itch_res['output_dir']} (Butler 自动推送契约就绪, godot_native={itch_res['godot_native']}, web_in_desktop={itch_res['web_in_desktop']})")
 
         compliance = CommercialDistributionHub.audit_compliance(dist_root)
         print(f"  [COMPLIANCE GATE] 合规评级: {compliance['compliance_verdict']} ({compliance['passed_checks']}/{compliance['total_checks']} 项达标)")

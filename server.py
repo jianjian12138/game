@@ -188,14 +188,37 @@ class StudioHTTPHandler(BaseHTTPRequestHandler):
                 subject_id=str(data.get("subject_id", "local"))[:100],
                 profile=str(data.get("profile", "web_survivor_vertical_v1"))[:80],
             )
-            prepared = run_service.prepare(intent)
-            self.send_json(202, {
-                "status": "accepted",
-                "run_id": intent.run_id,
-                "intent_id": intent.intent_id,
-                "spec_id": prepared["spec"].spec_id,
-                "plan_id": prepared["plan"].plan_id,
-                "next": f"/api/v1/runs/{intent.run_id}",
+
+            # 仅受理不执行：调用方显式传 "execute": false 时使用。
+            # 此时 run 停在 G0-G2，必须重新 POST（默认 execute）才会真正构建与验证。
+            if data.get("execute") is False:
+                prepared = run_service.prepare(intent)
+                self.send_json(202, {
+                    "status": "accepted_not_executed",
+                    "run_id": intent.run_id,
+                    "intent_id": intent.intent_id,
+                    "spec_id": prepared["spec"].spec_id,
+                    "plan_id": prepared["plan"].plan_id,
+                    "next": "/api/v1/runs",
+                    "note": "当前 run 仅完成契约准备，未执行构建与运行时验证",
+                })
+                return
+
+            res = run_service.execute_run(
+                intent,
+                mode=str(data.get("mode", "fast"))[:20],
+                llm_provider=str(data.get("llm_provider", "gemini"))[:30],
+            )
+            self.send_json(200, {
+                "status": res.get("status"),
+                "run_id": res.get("run_id"),
+                "intent_id": res.get("intent_id"),
+                "spec_id": res.get("spec_id"),
+                "plan_id": res.get("plan_id"),
+                "game_file": res.get("game_file"),
+                "gate_decisions": res.get("gate_decisions"),
+                "verification_coverage": res.get("verification_coverage"),
+                "release_eligible": res.get("release_eligible"),
             })
 
         elif path.startswith("/api/v1/runs/") and path.endswith("/status"):
@@ -205,6 +228,75 @@ class StudioHTTPHandler(BaseHTTPRequestHandler):
                 self.send_json(200, run_service.get_run_status(run_id))
             except FileNotFoundError:
                 self.send_json(404, {"error": "Run not found"})
+            except SecurityGuardError as exc:
+                self.send_json(400, {"error": f"Invalid run id: {exc}"})
+
+        elif path.startswith("/api/v1/runs/") and path.endswith("/promote"):
+            from core.run_service import run_service
+            from core.release_service import ReleaseBlockedError
+            run_id = path[len("/api/v1/runs/"):-len("/promote")].strip("/")
+            approval = data.get("approval")
+            if not isinstance(approval, dict) or not approval.get("identity"):
+                self.send_json(400, {"error": "approval must be an object with role, approved and identity"})
+                return
+            approval = {
+                "role": str(approval.get("role", ""))[:50],
+                "approved": bool(approval.get("approved")),
+                "identity": str(approval.get("identity"))[:100],
+                "reason": str(approval.get("reason", ""))[:200],
+            }
+            channel = str(data.get("channel", "production"))
+            if channel not in ("staging", "production"):
+                self.send_json(400, {"error": "channel must be 'staging' or 'production'"})
+                return
+            try:
+                manifest = (run_service.promote_to_staging(run_id, approval) if channel == "staging"
+                            else run_service.promote_to_production(run_id, approval))
+            except FileNotFoundError:
+                self.send_json(404, {"error": "Run not found"})
+            except SecurityGuardError as exc:
+                self.send_json(400, {"error": f"Invalid run id: {exc}"})
+            except ReleaseBlockedError as exc:
+                self.send_json(409, {"error": str(exc), "run_id": run_id})
+            else:
+                self.send_json(200, {
+                    "status": f"{channel}_promoted",
+                    "run_id": run_id,
+                    "release_channel": manifest.get("release_channel"),
+                    "release_status": manifest.get("release_status"),
+                    "release_id": manifest.get("release_id"),
+                    "staging_smoke": manifest.get("staging_smoke"),
+                })
+
+        elif path.startswith("/api/v1/runs/") and path.endswith("/rollback"):
+            from core.run_service import run_service
+            from core.release_service import ReleaseBlockedError
+            run_id = path[len("/api/v1/runs/"):-len("/rollback")].strip("/")
+            reason = str(data.get("reason", ""))[:500]
+            if not reason:
+                self.send_json(400, {"error": "reason is required"})
+                return
+            actor = data.get("actor")
+            if not isinstance(actor, dict) or not actor.get("identity"):
+                self.send_json(400, {"error": "actor must be an object with role and identity"})
+                return
+            actor = {"role": str(actor.get("role", "release_manager"))[:50],
+                     "identity": str(actor.get("identity"))[:100]}
+            try:
+                result = run_service.rollback(run_id, reason, actor)
+            except FileNotFoundError:
+                self.send_json(404, {"error": "Run not found"})
+            except SecurityGuardError as exc:
+                self.send_json(400, {"error": f"Invalid run id: {exc}"})
+            except ReleaseBlockedError as exc:
+                self.send_json(409, {"error": str(exc), "run_id": run_id})
+            else:
+                self.send_json(200, {"status": "rolled_back", "run_id": run_id, **result})
+
+        elif path == "/api/v1/release-drill":
+            from pipeline.release_drill import ReleaseDrill
+            report = ReleaseDrill.run()
+            self.send_json(200 if report["status"] == "PASS" else 500, report)
 
         elif path == "/api/create" or path == "/api/generate":
             title = str(data.get("title", "中国象棋"))[:100]

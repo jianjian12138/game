@@ -1,0 +1,531 @@
+{
+  "artifact_type": "b_skill_audit",
+  "generated_at": "2026-09-10 14:07:17",
+  "digest_path": "evidence/b_skills_latest.json",
+  "ever_passed_count": 62,
+  "checked": 65,
+  "still_valid": 62,
+  "stale": 0,
+  "missing": 0,
+  "no_pass_record": 3,
+  "details": [
+    {
+      "skill_id": "a_star_pathfinding",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:60a453b64d5dfc9e8dce3b2b9f65df58d166430961635ef5841a3f68a2bf6dca",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "aabb_collision_detection",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:d08e3268925bc1cbb202cd3bf5a886ab678fad21e07a4d101bec78b2167c14be",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "adsr_envelope_shaper",
+      "ever_passed": true,
+      "pass_rate": 0.75,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:bd4978c5cae81aee93c7cf7200e297f9914d17b06d62856c53f4ae24be284ef6",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "arpeggio_generator",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:10c93f2167d55005792b2592bc86d20b93988b111050883065a92409d5bd731d",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "audio_silence_detector",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:37d55fca8f001fa8a61e1f7a17a45b2edecfc6538c52b176f69cc37df9db0d72",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "auto_rigging_heat_skinning",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:2ea66b97e9d4ca53e6e9738ef4d492333ec6460318e6c150ecc7f0ec2442b5a7",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "behavior_tree_evaluator",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:f79ff0a686bd6cfd559e1fdca6686ab5b15edee8fedc4d229f19eba43d8163c9",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "boundary_exploit_tester",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:e8ed8ace36e3cfccd522b0a199a26a8d457bf811f4e45a0f3447b5caa23158b0",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "browser_resize_stress",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:e1d18158a159bb06cfb350a8026779aa52827883d0240b74407875fec7e38e0c",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "canvas_particle_emitter",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:c933eba8d27395b15d54d0b429df1cc7983a931607c30894128afb4449a6611b",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "canvas_scanline_crt",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:ffed7ea4ecf3fd8af97324292a635238780b1e0ebb76db36b4a038fcef855d5e",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "cli_headless_probing",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:cf8686e2640d7b73ddea6e4be6d011c974b76fde4d1c52f4341f62b646779544",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "coin_pickup_bell_chime",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:558764a924797b6e682b295a16b262b2d8bb49b8d514b9e75eebc84e8bf5094b",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "collision_glitch_detector",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:3133f6c17ff572991f64316458a2b41074a4caf31906268cd4798edfa54c29cb",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "cooldown_timer_queue",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:107a62aa1272bfd5bf703e8732be84f5e98eaede12339bd37ecdfa372adecb11",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "cross_browser_api_linter",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:8ab432ad1d28ce326c86d7999224ae2cd5fa788ee93b11fb6f6d26e158c6991e",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "damage_flash_white",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:98ae19d4067219f34d064ab06e68c1e20cbcf9cd99942fbb9e10e1fa96960686",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "day_night_color_tint",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:1bd302d91964d3a6a5036e8849911af0df56f92123feee83cf14aa12ba6d758a",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "dual_engine_subsystem_sandbox",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:295383748f14a86e5ad41b32fb3e5e10898e57a5b68ccb0277e7521f8516354a",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "engine_subsystem_profiling_hud",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:ed5afe851efdc69dee12338624eaf402c5da83aebaced4944aac6536f30c07f1",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "floating_combat_text",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:53d5d0756e8bc1ddb7731b33b886dd0a5560588698533619c81ed649e76268a1",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "fps_stability_auditor",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:9ea2a71f71c7cbc27fa7cf83d25343eb280dc0fbfbcd4c190d8e44b9e3496e76",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "frustum_culling_quadtree_spatial",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:35eb08705361df6a77e24f823bc99f3db5e18b4dd78c074e0d2f340ce3a6a122",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "game_over_jingle_chord",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:99d94da4326379aa4ff0b5ff05170d5dd72739567b0f7ef627328d67cdf159c9",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "gamepad_api_handler",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:3794f6376ee19ce80bbf54ad16f21b171961884f4665c9d3a8ecfe9941b9f081",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "gravity_jump_parabola",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:a3b6ef33323a5e36975814647aa12d258f9e37127b470cbf366705729055c45b",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "grid_tilemap_parser",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:5e5ee81429e0161a676016d4f1c40d5a8df2e66f397c56eb5d47962e354e6469",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "hardware_tier_profiling",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:6e832ec832b4fe60ef46df282f9974a74d3c8136d7338fc31be141768b203482",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "headless_input_simulator",
+      "ever_passed": true,
+      "pass_rate": 0.5,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:054f3fde3972d2a0faea02b9b133cc344fb3631a6bdc389a66caccc662f26258",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "infinite_loop_watchdog",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:4e086e1ed79fb5e5e6e110c3dda248c8fbc12530b48136ad44b8da87a5acc57e",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "jump_spring_whistle",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:7400bf9a3e96185b34ee63e4c8d6904f5713e1561f35e178b02dd8d932e0e61d",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "lerp_smoothing_math",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:9605b841f776c8e04de4e7d002cd12f4e1ca87be6de55d37b40860a7f6bda6c3",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "lighting_bloom_postprocess",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:37064751ec89597f06586269b3ac040cef968258409a9031aea71cea663458a6",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "logistics_conveyor_network_solving",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:bd47fe09d5f2094dcc73b6090560b64ad2b173cc6feb8ccb1b4440aaa57d749c",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "memory_leak_probe",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:ba24ead95ddbbcdad254fe423ca834aeb0b834d2fedfbded8ab33d6e2db81ccb",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "next_gen_high_poly_sculpting",
+      "ever_passed": false,
+      "pass_rate": 0.0,
+      "pass_run_id": null,
+      "audit": "no_pass_record"
+    },
+    {
+      "skill_id": "object_pool_manager",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:897c8d2a11d7440507e0d2ff5afff1a2523ebe59300a96fa0d8c4022397d99f6",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "patch_first_sandboxing",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:d63a25c9318dbc166461f16f853ac849a2b4a7ec6326fb0a086719781979dcbb",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "pbr_five_channel_baking",
+      "ever_passed": false,
+      "pass_rate": 0.0,
+      "pass_run_id": null,
+      "audit": "no_pass_record"
+    },
+    {
+      "skill_id": "pitch_bend_laser_sfx",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:7a3de176a96fcb4de6a014ff002585a82e30e279ee417575e1b07cb2dc13878b",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "pixel_art_upscaler",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:6b1fe7274fb58319fb79dfacc87a2b377f50e80ba88143e73b65eba5458631c1",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "pixel_visual_diffing",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:b20d1b89c6a32cd0c5bd44f2b0be094f71c82d37104723666cf4882b9695b1a7",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "procedural_background_stars",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:f06c8f74b95c9f33bc4f1d5c798f1d37412d360b76bc6c66edb2236fbc27e754",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "quad_retopology_uv_unwrap",
+      "ever_passed": false,
+      "pass_rate": 0.0,
+      "pass_run_id": null,
+      "audit": "no_pass_record"
+    },
+    {
+      "skill_id": "quadtree_collision",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:78d12596ca7a8c5ee566a7a59fc4c3afd83442c06719fabd702ee8dee1f5b368",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "radial_progress_cooldown",
+      "ever_passed": true,
+      "pass_rate": 0.5,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:adaabccb4c8850a7667e4955c660ae193e95c97ad8df2f27af3808f08821e60a",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "raycast_line_of_sight",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:ad116251a56acbebdd0e42e4149ab0d613d000b9f0fbdb35d0a09cdd6ab6ebee",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "render_queue_material_batching",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:d3da99ae68d11d6d5f6e9278c13a41a84113008a13c036f1baf304fbad6116f0",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "sat_polygon_physics",
+      "ever_passed": true,
+      "pass_rate": 0.75,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:737919b1ccc05887ef2eec4ae1073082a27a72002e92ae1f809b7283c4a94808",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "save_state_serializer",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:f3025d72566cb3769fb13685c48d94e16089507ca11be383123d1d49925575c8",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "score_overflow_checker",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:6942f80cfe10de0edec9f5a815a234b4a4d55c3ba3f354664fc5287d613a83ff",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "screen_shake_effect",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:59ffc263544c42ce04a6e24ab3059dbef7d5fbfadf7ddb60904fb3e306d7af83",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "seed_procedural_dungeon",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:1c3b5e8930dc9778d470b682e86881923d7d25552bf8ff267a8a70c537d27ee9",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "shockwave_ring_distort",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:789b89471ffbd9df5ed87800562dd1ad321cc2e9c0123ffee1dfe31f39211067",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "spatial_grid_partitioning",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:e5632b83c2bc7351cad9c39bf87cfc865f7cc791fd8cb46902dd0cb7be7eb474",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "spatial_stereo_panner",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:6eb1d6618d7912d41e980a30336b0b921c2924ccdfc81d6d534a0207d16cb055",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "sprite_animation_sheet",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:ae3530266af2122350836d2d71da9362c7e4f2eca97d83152fb9b1880ed354ad",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "state_invariants_fuzzing",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:bdb2fc355d36e9b9542b5ea5e6de5780176e5602486f93fa1e6c8c36aef8092e",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "state_machine_builder",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:3b9f00d58f72f30b70ca9320e48313ae4375b429713fb794352f4f2f91b51c31",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "svg_path_rasterizer",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:7f74653afc18503d4e1db2545cb9e2b0b653d57a45813454aada4fc0f00d61b3",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "trail_ghost_renderer",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:d17511d9d6a48298b74458a9ddce88cba0055f9882a87584cf6fbd86e323e6d8",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "v8_hidden_class_zero_gc_tuning",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:bf10b82e8882280ff8c552d59ec145d909537ab404e69a583d68c910e9aba102",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "virtual_joystick_touch",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:15ed492863d52d26f0646ce98c9508fce78cb26430233b1563a02459b9320711",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "webaudio_retro_synth",
+      "ever_passed": true,
+      "pass_rate": 0.5,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:2f1530e698090560a8e3e0c24a4944beb0b0da423f3126707907333665e0f50e",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "white_noise_explosion",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_140417_2cd7a002",
+      "payload_sha256": "sha256:e43ff5629b81b485d7a3f4f204488d820bca939ad4cbf96e68d11ebcf20d7f75",
+      "audit": "still_valid"
+    }
+  ],
+  "note": "still_valid = 历史通过 payload 在当前契约下复验仍通过；stale = 契约已变旧通过不再成立。"
+}

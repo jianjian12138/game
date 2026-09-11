@@ -130,7 +130,7 @@ class DataDrivenCompiler:
           <div>消灭敌军: <span id="stat-kills" style="color:#ff7b72; font-weight:bold;">0</span></div>
           <div>最终等级: <span id="stat-level" style="color:#ffd700; font-weight:bold;">1</span></div>
         </div>
-        <button class="bus-btn" onclick="location.reload()">🔄 重新开始新的轮回</button>
+        <button class="bus-btn" id="btn-restart" onclick="GameApp.restartMatch()">🔄 重新开始新的轮回</button>
       </div>
     </div>
   </div>
@@ -507,6 +507,15 @@ class DataDrivenCompiler:
           document.getElementById('stat-level').innerText = player.level;
 
           document.getElementById('screen-gameover').classList.remove('bus-hidden');
+          // 终局由游戏侧显式上报，运行时适配器才能真实断言 game_over 场景
+          if (window.__GAME_AGENT__) {{ window.__GAME_AGENT__.markGameOver(); }}
+        }},
+        // 页面内重开：走 startMatch 的完整重置，不靠 location.reload，
+        // 这样运行时契约才能观察到同一次会话内的终局 -> 重开状态迁移。
+        restartMatch: function() {{
+          document.getElementById('screen-gameover').classList.add('bus-hidden');
+          if (window.__GAME_AGENT__) {{ window.__GAME_AGENT__.markRestart(); }}
+          GameApp.startMatch();
         }},
         draw: function() {{
           ctx.save();

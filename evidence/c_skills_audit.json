@@ -1,0 +1,208 @@
+{
+  "artifact_type": "c_skill_audit",
+  "generated_at": "2026-09-10 13:23:05",
+  "digest_path": "evidence/c_skills_latest.json",
+  "digest_schema_version": 2,
+  "ever_passed_count": 24,
+  "checked": 24,
+  "still_valid": 24,
+  "stale": 0,
+  "missing": 0,
+  "no_pass_record": 0,
+  "pass_rate_avg": 1.0,
+  "details": [
+    {
+      "skill_id": "accessibility_color_blind",
+      "ever_passed": true,
+      "pass_rate": 0.75,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:142306113970eaacccbd1bae965c45f9378ce398b5297227a693370a1806fd7e",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "adaptive_music_layering",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:c9e01936069d10689c533498d58805f2f4e10d60a5378312e48d5ad47a2842dc",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "anti_rubber_stamp_veto",
+      "ever_passed": true,
+      "pass_rate": 0.5,
+      "pass_run_id": "run_20260910_124400_2d03c71f",
+      "payload_sha256": "sha256:04207c553db8ef433503042fae2c74ad367375f053eb155cee604f6c81aaf22a",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "boss_phase_transition",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:810d0470c17af4ea31c6be313221faa1438687082a9ed4cf2f4a6189cd28738d",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "camera_viewport_rules",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:5fb2cc6ffc6f134811ae3cc322c2a64e6e98b982351df0cf7f40181812cb4c3f",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "control_scheme_mapping",
+      "ever_passed": true,
+      "pass_rate": 0.5,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:69286a00c3336b130a534ed0189c096b8ce15fc88936df68fb0bdd7607fca141",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "core_loop_design",
+      "ever_passed": true,
+      "pass_rate": 0.25,
+      "pass_run_id": "run_20260910_124400_2d03c71f",
+      "payload_sha256": "sha256:0d1f8614eca3c6cd61481f6eebe9802b6b482f0dda9a7fbac7b19af27d024fc3",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "difficulty_kill_ratio_eval",
+      "ever_passed": true,
+      "pass_rate": 0.25,
+      "pass_run_id": "run_20260910_124400_2d03c71f",
+      "payload_sha256": "sha256:249b77b5249461cf8d47faf109e3e8d4bcd4b70078976d968f1f9be155c01ca7",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "drop_rate_rng_table",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:2fd4788271d79733f4d362c9f7a14a3a1091999a442af47c16577d2b10d736c9",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "economy_balance_math",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:599c6f4cd77bfbca5a058503e9cb352b1161bc814f88193bf30152df70348fe0",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "first_principles_structural_audit",
+      "ever_passed": true,
+      "pass_rate": 0.75,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:d740f49f337400ce85b11af11ae8ab58eb219616836941cb919520f89824a4d7",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "hypercasual_ad_monetization",
+      "ever_passed": true,
+      "pass_rate": 0.667,
+      "pass_run_id": "run_20260910_124400_2d03c71f",
+      "payload_sha256": "sha256:9d118e383054056487b0ecb51697f3f18d3d0ded572b276e9d797674fafa7b2c",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "inventory_slot_matrix",
+      "ever_passed": true,
+      "pass_rate": 0.75,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:e59922828166d83c4a48e8541e5f474be02d4559120a37c55fa9c851152d724c",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "level_curve_progression",
+      "ever_passed": true,
+      "pass_rate": 0.667,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:af9e28b5456a0a78c603ef26ce10a124ee01ded95e4c933e2d4c81e98c0cdc97",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "narrative_dialogue_branching",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:c8f231e27c2f87d4b8f576992eb345c5a95597dad02b0a385cf496a32101e187",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "quest_tree_builder",
+      "ever_passed": true,
+      "pass_rate": 0.5,
+      "pass_run_id": "run_20260910_124400_2d03c71f",
+      "payload_sha256": "sha256:98a37724208583b3fa918c80739bdd57da1d3773811b5416eeca8b5fee2ba2f2",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "review_privacy_hardening",
+      "ever_passed": true,
+      "pass_rate": 0.75,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:ea274d2d46485691b5fdeb7905ce520daca5f7167d8acdb8cb69987d5b141f19",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "score_combo_multiplier",
+      "ever_passed": true,
+      "pass_rate": 0.75,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:2cf8a0bc6cea9ef9ee0ff523fdf25e91b61cd2ff45033a4156b12555dc9967a0",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "tangent_normal_brdf_shader",
+      "ever_passed": true,
+      "pass_rate": 0.5,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:8a0ab4203da1a937167b119d52408d9d5080ec304d2d0607dfd7e7417198d0df",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "telemetry_funnel_analytics",
+      "ever_passed": true,
+      "pass_rate": 0.75,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:4d9eeecef99405a15390dea7acf8fce38d1a70e5a5ccda33b8e757517e3c0be3",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "tutorial_stealth_guide",
+      "ever_passed": true,
+      "pass_rate": 0.75,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:f3098f536543e881ca4329b04c089b8d31635b4445aab360aaadd73f6b459a78",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "ui_hud_wireframe",
+      "ever_passed": true,
+      "pass_rate": 0.333,
+      "pass_run_id": "run_20260910_120906_f1df9768",
+      "payload_sha256": "sha256:d552c8b7d86b48790f74829452811a3bb43fd504bb8fca4e924854744e101f5d",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "webgl_shader_pipeline",
+      "ever_passed": true,
+      "pass_rate": 0.25,
+      "pass_run_id": "run_20260910_124400_2d03c71f",
+      "payload_sha256": "sha256:6205a8b8eef37827ff8953193eec7d809f4ebef9ca54ba418883d7a2d26d6f4c",
+      "audit": "still_valid"
+    },
+    {
+      "skill_id": "wechat_social_viral_loop",
+      "ever_passed": true,
+      "pass_rate": 1.0,
+      "pass_run_id": "run_20260910_130735_1e9382ca",
+      "payload_sha256": "sha256:f9d49c8e60f59be27073606af4c2d4f4c2802a03b4cd0ccd1e14d65fc8780667",
+      "audit": "still_valid"
+    }
+  ],
+  "note": "still_valid = 该技能历史通过的 payload 在**当前**契约下复校验仍通过；stale = 契约已变，旧通过不再成立；missing = 工件读不回。"
+}

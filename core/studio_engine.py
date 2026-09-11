@@ -367,7 +367,8 @@ class StudioEngine:
         # 阶段 12: post_release
         t0 = time.time()
         game_path = run_ctx.work_dir / "index.html"
-        game_path.write_text(qa_res["healed_code"], encoding="utf-8")
+        from core.runtime_contract import inject_runtime_contract
+        game_path.write_text(inject_runtime_contract(qa_res["healed_code"]), encoding="utf-8")
         run_ctx.register_artifact("game_html", game_path)
         godot_dir = GodotExporter.export_godot_project(title, genre, run_ctx.work_dir)
 
@@ -396,7 +397,7 @@ class StudioEngine:
             "promoted_files": [str(path) for path in promoted],
             "log": (f"🎉 [{producer.name}] 运行目录交付完成: 沙箱 {run_ctx.run_id} 已归档"
                     + (f"，兼容导出至 {self.output_dir}" if export_release else "，未执行发布提升；需通过 ReleaseService 门禁")), 
-            "game_file": str(self.output_dir / "index.html"),
+            "game_file": str(game_path),
             "godot_dir": str(godot_dir),
             "gdd_file": str(self.output_dir / "GDD.md"),
             "run_id": run_ctx.run_id,

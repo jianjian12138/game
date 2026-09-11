@@ -6,7 +6,6 @@
 import json
 import os
 import shlex
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -29,6 +28,12 @@ def _entry(code: str, message: str, **details: Any) -> Dict[str, Any]:
 
 
 def _runtime_executable(runtime_command: Optional[Union[str, Sequence[str]]]) -> Optional[str]:
+    """只在调用方显式给出运行时命令时解析可执行文件。
+
+    绝不自动探测并拉起浏览器：那样既观测不到渲染结果、产生不了任何证据，
+    又会在每次冒烟时留下一个必须靠超时杀掉的孤儿进程。没有显式运行时，
+    就没有运行时结论（fail-closed）。
+    """
     if isinstance(runtime_command, (list, tuple)):
         return runtime_command[0] if runtime_command else None
     if isinstance(runtime_command, str):
@@ -36,17 +41,6 @@ def _runtime_executable(runtime_command: Optional[Union[str, Sequence[str]]]) ->
             return shlex.split(runtime_command)[0]
         except ValueError:
             return None
-    try:
-        from core.environment_inspector import EnvironmentInspector
-        found_chrom = EnvironmentInspector.detect_chromium_executable()
-        if found_chrom:
-            return found_chrom
-    except Exception:
-        pass
-    for name in ("chrome", "chrome.exe", "msedge", "msedge.exe", "firefox", "firefox.exe", "godot", "godot.exe"):
-        found = shutil.which(name)
-        if found:
-            return found
     return None
 
 
@@ -106,8 +100,15 @@ def run_runtime_asset_smoke(
             report["runtime"] = {"status": "RUNTIME_ERROR", "tool": executable, "error": str(exc)}
             report["errors"].append(_entry("RUNTIME_ERROR", "运行时探测器执行失败"))
         else:
-            report["runtime"] = {"status": "SUCCESS" if probe_result.get("status") in ("SUCCESS", "PASS") else "RUNTIME_FAILED", "tool": executable, "probe": probe_result}
-            if report["runtime"]["status"] != "SUCCESS":
+            probe_status = str(probe_result.get("status", "")).upper()
+            report["runtime"] = {"tool": executable, "probe": probe_result}
+            if probe_status in ("SUCCESS", "PASS"):
+                report["runtime"]["status"] = "SUCCESS"
+            elif probe_status == "NEEDS_RUNTIME_TOOL":
+                # 「无法验证」必须区别于「验证不通过」，不能降级成 FAIL 也不能升级成 SUCCESS
+                report["runtime"]["status"] = "NEEDS_RUNTIME_TOOL"
+            else:
+                report["runtime"]["status"] = "RUNTIME_FAILED"
                 report["errors"].append(_entry("RUNTIME_FAILED", "运行时探测器未确认资产可加载"))
     elif executable is None:
         report["runtime"] = {

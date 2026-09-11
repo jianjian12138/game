@@ -1,18 +1,22 @@
 # ==============================================================================
 # Git Ignore - Clean Production Code Only (纯生产代码轻量化交付)
-# 排除所有文档文件 (*.md)、测试文件 (test_*.py)、临时脚本与 574MB 编译构建产物
+# 排除临时文档/报告、临时脚本与编译构建产物；README、许可证、计划与验收 HTML 单独保留
 # ==============================================================================
 
 # ── 1. 文档与手册文件 (保留 LICENSE 与工程主说明 README.md，排除所有临时报告与手册) ─────
 *.md
 !README.md
+!USAGE.md
+!MULTI_PLATFORM_PLAN.md
+!GAME_AGENT_MASTER_UPGRADE_PLAN.md
 *.markdown
 *.pdf
 docs/
-USAGE*
 *.txt
 !requirements.txt
 !LICENSE*
+!DELIVERY_ACCEPTANCE_REPORT.html
+!GAME_AGENT_MASTER_UPGRADE_PLAN.html
 
 # ── 2. 测试工程与临时脚本 (保留标准单元测试 tests/，排除临时草稿与审计扫描) ──────────
 scratch/
@@ -25,6 +29,8 @@ dist/
 build/
 saves/
 target/
+dist_package/
+attic/
 *.exe
 *.o
 *.obj
@@ -72,3 +78,6 @@ tmp_edge_*/
 wechat_article_dump.*
 parsed_games_db.json
 .env
+
+# LLM 端点池（含密钥，禁止提交）
+config/llm_endpoints.json

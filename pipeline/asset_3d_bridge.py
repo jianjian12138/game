@@ -111,6 +111,86 @@ class Mesh3D:
             # 底面
             self.add_triangle((cx, cy - hh, cz), (x2, cy - hh, z2), (x1, cy - hh, z1), (0, -1, 0))
 
+    # ── UV 感知基元（W6：贴图可正确映射，避免退化 UV (0,0)） ────────────────
+    def add_triangle_uv(self, p1, p2, p3, n=None,
+                        uv1=(0.0, 0.0), uv2=(0.0, 0.0), uv3=(0.0, 0.0)):
+        """添加单个三角面并指定逐顶点 UV（用于贴图映射）"""
+        base_idx = len(self.positions) // 3
+        self.positions.extend(p1)
+        self.positions.extend(p2)
+        self.positions.extend(p3)
+        if n is None:
+            u = (p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2])
+            v = (p3[0]-p1[0], p3[1]-p1[1], p3[2]-p1[2])
+            nx = u[1]*v[2] - u[2]*v[1]
+            ny = u[2]*v[0] - u[0]*v[2]
+            nz = u[0]*v[1] - u[1]*v[0]
+            mag = math.sqrt(nx*nx + ny*ny + nz*nz) or 1.0
+            n = (nx/mag, ny/mag, nz/mag)
+        for _ in range(3):
+            self.normals.extend(n)
+        self.uvs.extend(uv1)
+        self.uvs.extend(uv2)
+        self.uvs.extend(uv3)
+        self.indices.extend([base_idx, base_idx + 1, base_idx + 2])
+
+    def add_quad_uv(self, p1, p2, p3, p4, n=None,
+                    uv1=(0.0, 0.0), uv2=(1.0, 0.0), uv3=(1.0, 1.0), uv4=(0.0, 1.0)):
+        """添加四边面（分裂为两个三角）并指定四角 UV"""
+        self.add_triangle_uv(p1, p2, p3, n, uv1, uv2, uv3)
+        self.add_triangle_uv(p1, p3, p4, n, uv1, uv3, uv4)
+
+    def add_box_uv(self, cx: float, cy: float, cz: float,
+                   sx: float, sy: float, sz: float):
+        """添加带正确逐面 UV 映射的轴对齐长方体（每面贴图一次）"""
+        hx, hy, hz = sx / 2.0, sy / 2.0, sz / 2.0
+        v0 = (cx - hx, cy - hy, cz + hz)
+        v1 = (cx + hx, cy - hy, cz + hz)
+        v2 = (cx + hx, cy + hy, cz + hz)
+        v3 = (cx - hx, cy + hy, cz + hz)
+        v4 = (cx - hx, cy - hy, cz - hz)
+        v5 = (cx + hx, cy - hy, cz - hz)
+        v6 = (cx + hx, cy + hy, cz - hz)
+        v7 = (cx - hx, cy + hy, cz - hz)
+        # 6 个面（保持与 add_box 一致缠绕顺序，逐面 UV 0..1）
+        self.add_quad_uv(v0, v1, v2, v3, (0, 0, 1), (0, 0), (1, 0), (1, 1), (0, 1))   # 前 +Z
+        self.add_quad_uv(v5, v4, v7, v6, (0, 0, -1), (0, 0), (1, 0), (1, 1), (0, 1))  # 后 -Z
+        self.add_quad_uv(v4, v0, v3, v7, (-1, 0, 0), (0, 0), (1, 0), (1, 1), (0, 1))  # 左 -X
+        self.add_quad_uv(v1, v5, v6, v2, (1, 0, 0), (0, 0), (1, 0), (1, 1), (0, 1))   # 右 +X
+        self.add_quad_uv(v3, v2, v6, v7, (0, 1, 0), (0, 0), (1, 0), (1, 1), (0, 1))   # 上 +Y
+        self.add_quad_uv(v4, v5, v1, v0, (0, -1, 0), (0, 0), (1, 0), (1, 1), (0, 1))  # 下 -Y
+
+    def add_cylinder_uv(self, cx: float, cy: float, cz: float,
+                        radius: float, height: float, segments: int = 12):
+        """添加带 UV 的圆柱体（侧面 u 沿圆周、v 沿高度；顶底盖为圆盘 UV）"""
+        hh = height / 2.0
+        step = (math.pi * 2.0) / segments
+        for i in range(segments):
+            a1 = i * step
+            a2 = (i + 1) * step
+            u1 = i / segments
+            u2 = (i + 1) / segments
+            x1, z1 = cx + math.cos(a1) * radius, cz + math.sin(a1) * radius
+            x2, z2 = cx + math.cos(a2) * radius, cz + math.sin(a2) * radius
+            p1 = (x1, cy - hh, z1)
+            p2 = (x2, cy - hh, z2)
+            p3 = (x2, cy + hh, z2)
+            p4 = (x1, cy + hh, z1)
+            self.add_quad_uv(p1, p2, p3, p4, None,
+                             (u1, 0.0), (u2, 0.0), (u2, 1.0), (u1, 1.0))
+            # 顶面（三角扇）
+            self.add_triangle_uv(
+                (cx, cy + hh, cz), (x1, cy + hh, z1), (x2, cy + hh, z2), (0, 1, 0),
+                (0.5, 0.5),
+                (0.5 + 0.5 * math.cos(a1), 0.5 + 0.5 * math.sin(a1)),
+                (0.5 + 0.5 * math.cos(a2), 0.5 + 0.5 * math.sin(a2)))
+            # 底面（反向缠绕）
+            self.add_triangle_uv(
+                (cx, cy - hh, cz), (x2, cy - hh, z2), (x1, cy - hh, z1), (0, -1, 0),
+                (0.5, 0.5),
+                (0.5 + 0.5 * math.cos(a2), 0.5 + 0.5 * math.sin(a2)),
+                (0.5 + 0.5 * math.cos(a1), 0.5 + 0.5 * math.sin(a1)))
+
 
 class Procedural3DLibrary:
     """工业级程序化 3D 游戏资产库"""
@@ -302,6 +382,131 @@ class GLTF2Serializer:
         return json.dumps(gltf_dict, indent=2, ensure_ascii=False)
 
     @staticmethod
+    def export_textured_gltf_json(mesh: Mesh3D,
+                                  texture_uris: Dict[str, str]) -> str:
+        """将带 PBR 贴图的 Mesh3D 序列化为 glTF 2.0（贴图以相对 uri 引用）。
+
+        texture_uris 键：albedo / normal / metallicRoughness / ao / emissive
+        值：与 .gltf 同目录的 PNG 文件名（相对 uri）。
+        glTF 2.0 约定：metallicRoughness 贴图 G=粗糙度 B=金属度；
+        occlusion 贴图取 R 通道；normal 为切线空间法线。
+        """
+        # 1. 二进制 Buffer（与 export_gltf_json 同构，几何内联 base64）
+        pos_bytes = struct.pack(f"<{len(mesh.positions)}f", *mesh.positions)
+        norm_bytes = struct.pack(f"<{len(mesh.normals)}f", *mesh.normals)
+        uv_bytes = struct.pack(f"<{len(mesh.uvs)}f", *mesh.uvs)
+        idx_bytes = struct.pack(f"<{len(mesh.indices)}H", *mesh.indices)
+
+        def pad_bytes(b: bytes) -> bytes:
+            rem = len(b) % 4
+            return b + (b"\x00" * (4 - rem)) if rem != 0 else b
+
+        pos_bytes_p = pad_bytes(pos_bytes)
+        norm_bytes_p = pad_bytes(norm_bytes)
+        uv_bytes_p = pad_bytes(uv_bytes)
+        idx_bytes_p = pad_bytes(idx_bytes)
+
+        combined_buffer = pos_bytes_p + norm_bytes_p + uv_bytes_p + idx_bytes_p
+        b64_buffer = base64.b64encode(combined_buffer).decode("ascii")
+
+        pos_len = len(mesh.positions) // 3
+        pos_min = [min(mesh.positions[i::3]) for i in range(3)] if mesh.positions else [0, 0, 0]
+        pos_max = [max(mesh.positions[i::3]) for i in range(3)] if mesh.positions else [0, 0, 0]
+
+        offset_pos = 0
+        offset_norm = offset_pos + len(pos_bytes_p)
+        offset_uv = offset_norm + len(norm_bytes_p)
+        offset_idx = offset_uv + len(uv_bytes_p)
+
+        mat = mesh.material
+
+        # 2. 贴图 images/textures 与材质引用
+        images: List[Dict[str, Any]] = []
+        textures: List[Dict[str, Any]] = []
+        tex_index: Dict[str, int] = {}
+        _ORDER = ("albedo", "normal", "metallicRoughness", "ao", "emissive")
+        for ch in _ORDER:
+            uri = texture_uris.get(ch)
+            if not uri:
+                continue
+            img_idx = len(images)
+            images.append({"uri": uri, "name": ch})
+            t_idx = len(textures)
+            textures.append({"source": img_idx, "name": ch + "Tex"})
+            tex_index[ch] = t_idx
+
+        pbr = {
+            "baseColorFactor": [1.0, 1.0, 1.0, 1.0],
+            "metallicFactor": 1.0,
+            "roughnessFactor": 1.0,
+        }
+        if "albedo" in tex_index:
+            pbr["baseColorTexture"] = {"index": tex_index["albedo"]}
+        if "metallicRoughness" in tex_index:
+            pbr["metallicRoughnessTexture"] = {"index": tex_index["metallicRoughness"]}
+
+        material: Dict[str, Any] = {
+            "name": mat.name,
+            "pbrMetallicRoughness": pbr,
+            "emissiveFactor": [1.0, 1.0, 1.0],
+            "doubleSided": mat.double_sided,
+        }
+        if "normal" in tex_index:
+            material["normalTexture"] = {"index": tex_index["normal"], "scale": 1.0}
+        if "ao" in tex_index:
+            material["occlusionTexture"] = {"index": tex_index["ao"]}
+        if "emissive" in tex_index:
+            material["emissiveTexture"] = {"index": tex_index["emissive"]}
+
+        gltf_dict = {
+            "asset": {
+                "version": "2.0",
+                "generator": "Game Dev Agent Studio Asset3DBridge v6.1 Textured"
+            },
+            "scene": 0,
+            "scenes": [{"name": "DefaultScene", "nodes": [0]}],
+            "nodes": [{"name": mesh.name, "mesh": 0}],
+            "meshes": [{
+                "name": mesh.name,
+                "primitives": [{
+                    "attributes": {
+                        "POSITION": 0,
+                        "NORMAL": 1,
+                        "TEXCOORD_0": 2
+                    },
+                    "indices": 3,
+                    "material": 0
+                }]
+            }],
+            "materials": [material],
+            "accessors": [
+                {"bufferView": 0, "byteOffset": 0, "componentType": 5126,
+                 "count": pos_len, "type": "VEC3", "min": pos_min, "max": pos_max},
+                {"bufferView": 1, "byteOffset": 0, "componentType": 5126,
+                 "count": pos_len, "type": "VEC3"},
+                {"bufferView": 2, "byteOffset": 0, "componentType": 5126,
+                 "count": pos_len, "type": "VEC2"},
+                {"bufferView": 3, "byteOffset": 0, "componentType": 5123,
+                 "count": len(mesh.indices), "type": "SCALAR"}
+            ],
+            "bufferViews": [
+                {"buffer": 0, "byteOffset": offset_pos, "byteLength": len(pos_bytes), "target": 34962},
+                {"buffer": 0, "byteOffset": offset_norm, "byteLength": len(norm_bytes), "target": 34962},
+                {"buffer": 0, "byteOffset": offset_uv, "byteLength": len(uv_bytes), "target": 34962},
+                {"buffer": 0, "byteOffset": offset_idx, "byteLength": len(idx_bytes), "target": 34963}
+            ],
+            "buffers": [{
+                "byteLength": len(combined_buffer),
+                "uri": f"data:application/octet-stream;base64,{b64_buffer}"
+            }]
+        }
+        if images:
+            gltf_dict["images"] = images
+        if textures:
+            gltf_dict["textures"] = textures
+        return json.dumps(gltf_dict, indent=2, ensure_ascii=False)
+
+    @staticmethod
     def export_obj_text(mesh: Mesh3D) -> str:
         """输出标准 OBJ 模型文本"""
         lines = [
@@ -402,6 +607,22 @@ class Asset3DBridge:
                 "roughness": mesh.material.roughness
             }
         }
+
+    @staticmethod
+    def build_textured_asset(asset_type: str = "turret",
+                             output_dir: Optional[Path] = None,
+                             backend: Optional[str] = None,
+                             style: Any = None, seed: Optional[int] = None,
+                             verify_godot: bool = False,
+                             resolution: int = 256) -> Dict[str, Any]:
+        """W6：构建带 PBR 五通道贴图的 3D 资产（真实 PNG + 贴图 glTF + 可选 M4 真机导入）。"""
+        from pipeline.textured_3d_asset import TexturedAssetBuilder
+        rec = TexturedAssetBuilder.build(
+            asset_type=asset_type,
+            output_dir=str(output_dir) if output_dir else None,
+            backend=backend, style=style, seed=seed,
+            verify_godot=verify_godot, resolution=resolution)
+        return rec.to_dict()
 
     @staticmethod
     def get_threejs_mount_script(gltf_relative_path: str) -> str:

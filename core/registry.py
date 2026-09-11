@@ -195,9 +195,18 @@ STUDIO_TEAMS = {
         ],
         "required_gates": ["asset_schema", "gltf_integrity", "pbr_channels", "skin_weights", "lod_budget", "runtime_asset_smoke"],
         "maturity": {
-            "current": "M2_procedural_asset_baseline",
-            "next_target": "M3_runtime_verified_3d_assets",
+            "current": "M3_runtime_verified_3d_assets",
+            "next_target": "M4_engine_and_hardware_verified",
             "production_target": "M4_engine_and_hardware_verified",
+            # M3 只在「真实浏览器驱动 + WebGL 上下文 + 渲染统计契约」三证齐全时成立；
+            # 缺任一条件时 pipeline/webgl_runtime_probe.py 会退回 NEEDS_RUNTIME_TOOL，
+            # 此时本声明不得被当作已达成。
+            "evidence": {
+                "probe": "pipeline.webgl_runtime_probe:WebGLRuntimeProbe.probe_asset",
+                "runtime_driver": "pipeline.browser_runtime_adapter:BrowserRuntimeAdapter.probe_webgl",
+                "requires": ["playwright", "local_chromium_or_edge"],
+                "last_verified": "2026-09-09",
+            },
         },
     }
 }

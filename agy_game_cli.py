@@ -165,24 +165,22 @@ def main():
     p_wx.add_argument("--out", default="dist/wechat", help="Output directory")
     p_wx.add_argument("--name", default="antigravity-wechat-game", help="Project name")
     p_wx.add_argument("--orientation", default="portrait", choices=["portrait", "landscape"], help="Screen orientation")
+    p_wx.add_argument("--run-id", dest="run_id", type=str, default="",
+                      help="打包属发布类动作，必须挂接到某次已通过门禁的运行，否则拒绝执行")
 
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
         sys.exit(0)
 
-    if args.command == "list-parts":
-        cmd_list_parts(args)
-    elif args.command == "assemble":
-        cmd_assemble(args)
-    elif args.command == "balance":
-        cmd_balance(args)
-    elif args.command == "audit":
-        cmd_audit(args)
-    elif args.command == "templates":
-        cmd_templates(args)
-    elif args.command == "wechat-pack":
-        cmd_wechat_pack(args)
+    # 兼容入口同样经 RunService 统一派发：写入审计链，并对 wechat-pack
+    # 这类产出可分发货物的命令强制校验 ReleaseManifest，杜绝旁路发布。
+    from core.run_service import run_service
+    sys.exit(run_service.dispatch_tool(
+        args.command,
+        {"list-parts": cmd_list_parts, "assemble": cmd_assemble, "balance": cmd_balance,
+         "audit": cmd_audit, "templates": cmd_templates, "wechat-pack": cmd_wechat_pack},
+        args, parser.print_help))
 
 
 if __name__ == "__main__":

@@ -291,7 +291,15 @@ class GateDecision:
         if self.result not in {"PASS", "FAIL", "BLOCKED", "SKIPPED"}:
             raise ValueError(f"Unknown gate decision result: {self.result}")
         if not self.decision_id:
-            self.decision_id = new_id("decision", {"run_id": self.run_id, "gate_id": self.gate_id, "created_at": self.created_at})
+            # seed 必须包含裁决内容：同一次运行里同一门禁可能被重新裁决（例如先 FAIL 后修复再 PASS），
+            # 只用 run_id+gate_id+created_at 会撞出同一个 id 却内容不同，被工件库判为哈希冲突。
+            self.decision_id = new_id("decision", {
+                "run_id": self.run_id,
+                "gate_id": self.gate_id,
+                "created_at": self.created_at,
+                "result": self.result,
+                "reason_codes": list(self.reason_codes),
+            })
 
     def to_dict(self) -> Dict[str, Any]:
         data = {
@@ -334,9 +342,9 @@ class ReleaseManifest:
     schema_version: str = field(init=False, default=SCHEMA_VERSION)
 
     def __post_init__(self) -> None:
-        if self.release_channel not in {"preview", "production"}:
-            raise ValueError("release_channel must be preview or production")
-        if self.release_status not in {"candidate", "approved", "released", "revoked"}:
+        if self.release_channel not in {"preview", "staging", "production"}:
+            raise ValueError("release_channel must be preview, staging or production")
+        if self.release_status not in {"candidate", "staged", "approved", "released", "revoked", "rolled_back"}:
             raise ValueError("invalid release_status")
         if not self.release_id:
             self.release_id = new_id("release", {"run_id": self.run_id, "channel": self.release_channel, "created_at": self.created_at})

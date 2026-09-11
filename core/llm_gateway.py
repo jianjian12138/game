@@ -29,10 +29,11 @@ from typing import Optional, Dict, Any, List
 # ─── 自动加载 .env 文件 ────────────────────────────────────────────────────────
 _ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
-def _load_dotenv():
-    if not _ENV_FILE.exists():
+def _load_dotenv(path=None):
+    env_file = Path(path) if path else _ENV_FILE
+    if not env_file.exists():
         return
-    with open(_ENV_FILE, encoding="utf-8") as f:
+    with open(env_file, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
@@ -43,6 +44,17 @@ def _load_dotenv():
             if key and key not in os.environ:
                 os.environ[key] = val
 
+
+def ensure_env_loaded(path=None) -> None:
+    """显式确保 .env 已加载（幂等；已存在的环境变量优先）。
+
+    原先只有导入本模块时才顺带加载 .env，属于隐式副作用：
+    某些命令路径若不经过本模块，读到的就永远是空配置，
+    会让「明明填了 .env 却报未配置」。入口统一调用本函数后不再依赖导入顺序。
+    """
+    _load_dotenv(path)
+
+
 _load_dotenv()
 
 # ─── Provider 枚举 ─────────────────────────────────────────────────────────────
@@ -52,6 +64,7 @@ class LLMProvider(str, Enum):
     CLAUDE    = "claude"
     OLLAMA    = "ollama"
     DEEPSEEK  = "deepseek"
+    OPENAI_COMPAT = "openai_compat"   # 任意 OpenAI 兼容端点（免费额度池走这里）
 
 # ─── 默认模型映射 ──────────────────────────────────────────────────────────────
 DEFAULT_MODELS: Dict[LLMProvider, str] = {
@@ -60,6 +73,7 @@ DEFAULT_MODELS: Dict[LLMProvider, str] = {
     LLMProvider.CLAUDE:   "claude-sonnet-4-5",
     LLMProvider.OLLAMA:   "llama3.2",
     LLMProvider.DEEPSEEK: "deepseek-chat",
+    LLMProvider.OPENAI_COMPAT: "",   # 运行时从端点池取
 }
 
 # ─── API Key 环境变量映射 ──────────────────────────────────────────────────────
@@ -69,10 +83,101 @@ API_KEY_ENV: Dict[LLMProvider, str] = {
     LLMProvider.CLAUDE:   "ANTHROPIC_API_KEY",
     LLMProvider.OLLAMA:   "",   # 不需要 Key
     LLMProvider.DEEPSEEK: "DEEPSEEK_API_KEY",
+    LLMProvider.OPENAI_COMPAT: "",   # 从端点池读取，不落单一环境变量
 }
+
+
+# ─── OpenAI 兼容端点池（免费额度池） ─────────────────────────────────────────────
+# 端点文件含密钥，**必须**保持 gitignore，不得提交。用 CLI 的 `llm-import` 从
+# 本地 JSON 导入，用 `llm-status` 做真实连通性探测（不探测就不得宣称可用）。
+ENDPOINT_POOL_FILE = Path(__file__).resolve().parent.parent / "config" / "llm_endpoints.json"
+
+
+class LLMEndpoint:
+    """一个 OpenAI 兼容的 LLM 端点。"""
+
+    __slots__ = ("id", "name", "vendor", "url", "api_key",
+                 "supports_tool_call", "supports_images", "supports_reasoning")
+
+    def __init__(self, raw: Dict[str, Any]):
+        self.id = str(raw.get("id", "")).strip()
+        self.name = str(raw.get("name", self.id))
+        self.vendor = str(raw.get("vendor", ""))
+        self.url = str(raw.get("url", "")).rstrip("/")
+        self.api_key = str(raw.get("apiKey", "") or raw.get("api_key", ""))
+        self.supports_tool_call = bool(raw.get("supportsToolCall", False))
+        self.supports_images = bool(raw.get("supportsImages", False))
+        self.supports_reasoning = bool(raw.get("supportsReasoning", False))
+
+    @property
+    def chat_url(self) -> str:
+        if self.url.endswith("/chat/completions"):
+            return self.url
+        return self.url + "/chat/completions"
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "id": self.id, "name": self.name, "vendor": self.vendor,
+            "url": self.chat_url, "supports_tool_call": self.supports_tool_call,
+            "supports_images": self.supports_images, "supports_reasoning": self.supports_reasoning,
+            # 不回显 api_key
+        }
+
+
+def load_endpoints(path: Path = ENDPOINT_POOL_FILE) -> List[LLMEndpoint]:
+    if not path.exists():
+        return []
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return []
+    if isinstance(raw, dict):
+        raw = raw.get("endpoints", [])
+    return [LLMEndpoint(x) for x in raw if isinstance(x, dict) and x.get("id")]
+
+
+def probe_endpoint(ep: LLMEndpoint, timeout: int = 30) -> Dict[str, Any]:
+    """真实连通性探测：发一条最小请求，只认真正拿回内容的端点为可用。"""
+    import time as _t
+    started = _t.time()
+    body = {
+        "model": ep.id,
+        "messages": [{"role": "user", "content": "回复 OK"}],
+        "max_tokens": 512,   # 推理类模型会先吃掉思考 token，给足额度
+    }
+    req = urllib.request.Request(
+        ep.chat_url,
+        data=json.dumps(body).encode("utf-8"),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {ep.api_key}"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            text = ""
+            try:
+                text = data["choices"][0]["message"]["content"] or ""
+            except (KeyError, IndexError):
+                pass
+            ok = bool(text.strip())
+            return {
+                "id": ep.id, "name": ep.name, "ok": ok,
+                "latency_ms": int((_t.time() - started) * 1000),
+                "error": "" if ok else "返回内容为空（可能是推理模型耗尽 token 或额度受限）",
+                "sample": text[:60],
+            }
+    except urllib.error.HTTPError as e:
+        return {"id": ep.id, "name": ep.name, "ok": False,
+                "latency_ms": int((_t.time() - started) * 1000),
+                "error": f"HTTP {e.code}: {e.read().decode('utf-8', 'replace')[:160]}", "sample": ""}
+    except Exception as e:
+        return {"id": ep.id, "name": ep.name, "ok": False,
+                "latency_ms": int((_t.time() - started) * 1000),
+                "error": f"{type(e).__name__}: {str(e)[:160]}", "sample": ""}
 
 # ─── 降级顺序 ──────────────────────────────────────────────────────────────────
 FALLBACK_ORDER: List[LLMProvider] = [
+    LLMProvider.OPENAI_COMPAT,   # 免费额度池优先，成本最低
     LLMProvider.GEMINI,
     LLMProvider.DEEPSEEK,
     LLMProvider.OLLAMA,
@@ -215,7 +320,7 @@ class LLMGateway:
             for p in FALLBACK_ORDER:
                 if p != self.provider:
                     env_k = API_KEY_ENV.get(p, "")
-                    if p == LLMProvider.OLLAMA or os.environ.get(env_k, ""):
+                    if p == LLMProvider.OLLAMA or p == LLMProvider.OPENAI_COMPAT or os.environ.get(env_k, ""):
                         providers_to_try.append(p)
 
         last_error = ""
@@ -278,9 +383,57 @@ class LLMGateway:
                 model=DEFAULT_MODELS[provider],
                 provider_name="deepseek"
             )
+        elif provider == LLMProvider.OPENAI_COMPAT:
+            return self._call_endpoint_pool(prompt, system, max_tokens, temperature)
         else:
             return LLMResponse(text="", provider=str(provider), model="",
                                success=False, error=f"未知 Provider: {provider}")
+
+    # ─── OpenAI 兼容端点池 ────────────────────────────────────────────────────
+    def _resolve_endpoint(self) -> Optional[LLMEndpoint]:
+        pool = load_endpoints()
+        if not pool:
+            return None
+        if self.model:
+            for ep in pool:
+                if ep.id == self.model:
+                    return ep
+        preferred = os.environ.get("LLM_PREFERRED_ENDPOINT", "").strip()
+        if preferred:
+            for ep in pool:
+                if ep.id == preferred:
+                    return ep
+        return pool[0]
+
+    def _call_endpoint_pool(self, prompt: str, system: str,
+                            max_tokens: int, temperature: float) -> LLMResponse:
+        pool = load_endpoints()
+        if not pool:
+            return LLMResponse("", "openai_compat", "", success=False,
+                               error="未配置端点池：请先执行 `game_agent.py llm-import --file <llm.json>`")
+        ordered = list(pool)
+        preferred = self._resolve_endpoint()
+        if preferred:
+            # 按 id 去重，不能用对象身份（两次 load 出来的实例不同）
+            ordered = [e for e in ordered if e.id != preferred.id]
+            ordered.insert(0, preferred)
+
+        last_error = ""
+        for ep in ordered:
+            messages = []
+            if system:
+                messages.append({"role": "system", "content": system})
+            messages.append({"role": "user", "content": prompt})
+            body = {"model": ep.id, "messages": messages,
+                    "max_tokens": max_tokens, "temperature": temperature}
+            resp = self._http_post_json(ep.chat_url, body, "openai_compat", ep.id,
+                                        headers={"Authorization": f"Bearer {ep.api_key}"},
+                                        response_extractor=self._extract_openai_text)
+            if resp.success and (resp.text or "").strip():
+                return resp
+            last_error = f"{ep.id}: {resp.error or '空响应'}"
+        return LLMResponse("", "openai_compat", preferred.id if preferred else "",
+                           success=False, error=f"端点池全部失败 | {last_error}")
 
     # ─── Gemini ────────────────────────────────────────────────────────────────
     def _call_gemini(self, prompt: str, system: str, max_tokens: int,
@@ -501,7 +654,11 @@ class LLMGateway:
     def available_providers() -> List[str]:
         """检测当前环境中可用的 Provider"""
         available = []
+        if load_endpoints():
+            available.append(LLMProvider.OPENAI_COMPAT.value)
         for prov, env_key in API_KEY_ENV.items():
+            if prov == LLMProvider.OPENAI_COMPAT:
+                continue
             if prov == LLMProvider.OLLAMA:
                 # 尝试 ping Ollama
                 try:
