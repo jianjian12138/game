@@ -158,7 +158,7 @@ class StandaloneCLIAdapter(AgentAdapter):
         ]
 
     def execute_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        import agy_game_cli
+        import game_agent
         # 内部透传
         return {"status": "SUCCESS", "command": tool_name, "args": arguments}
 

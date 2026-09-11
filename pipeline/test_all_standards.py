@@ -616,9 +616,9 @@ class Test21_BrowserRuntimeAdapterExecutionAudit(unittest.TestCase):
             self.assertEqual(pre["status"], RuntimeStatus.NEEDS_RUNTIME_TOOL)
 
         # 使用一个有效的 HTML 页面测试 launch / run_scenarios / collect_evidence / close
-        test_html = ROOT / "output" / "cyber_survivor" / "index.html"
+        test_html = ROOT / "templates" / "card_roguelike" / "index.html"
         if not test_html.exists():
-            test_html = ROOT / "output" / "mindustry_mini" / "index.html"
+            test_html = ROOT / "output" / "cyber_survivor" / "index.html"
 
         session = adapter.launch(test_html)
         self.assertIsNotNone(session)

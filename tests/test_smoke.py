@@ -16,7 +16,7 @@ class Test01_CLIExtendedSmoke(unittest.TestCase):
     """测试所有顶层 CLI 与服务入口是否能正常输出 help 且退出码为 0"""
 
     def test_all_cli_help(self):
-        scripts = ["game_agent.py", "game_cli.py", "agy_game_cli.py", "game_mcp_server.py", "server.py"]
+        scripts = ["game_agent.py", "game_mcp_server.py", "server.py"]
         for s in scripts:
             p = ROOT / s
             self.assertTrue(p.exists(), f"脚本 {s} 不存在")
@@ -46,7 +46,7 @@ class Test02_ProductionModulesImport(unittest.TestCase):
             "pipeline.adversarial_red_team",
             "pipeline.data_oriented_ecs",
             "pipeline.tech_tree_dag_engine",
-            "expert_review",
+            "pipeline.expert_review",
         ]
         for mod in modules_to_test:
             with self.subTest(module=mod):
@@ -96,7 +96,7 @@ class Test04_ReleaseGateAndReviewPanel(unittest.TestCase):
         self.assertTrue(tests_ok, f"ReleaseGate 存在未通过项: {[s for s in suite_res if not s['passed']]}")
 
     def test_expert_review_panel(self):
-        from expert_review import ExpertAcceptancePanel
+        from pipeline.expert_review import ExpertAcceptancePanel
         panel = ExpertAcceptancePanel()
         res = panel.conduct_full_review(write_report=False)
         self.assertTrue(res["all_approved"], f"ExpertAcceptancePanel 存在未通过领域: {res['reviews']}")

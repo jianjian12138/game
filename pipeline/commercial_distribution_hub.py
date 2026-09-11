@@ -504,6 +504,17 @@ self.addEventListener('fetch', (e) => {{
         dist_root = output_root or (ROOT / "output" / "dist")
         dist_root.mkdir(parents=True, exist_ok=True)
 
+        # 写入国家出版署健康游戏忠告合规声明
+        (dist_root / "healthy_gaming_advice.json").write_text(
+            json.dumps({
+                "title": title,
+                "protocol": "国家出版署健康游戏忠告协议",
+                "content": CommercialDistributionHub.HEALTHY_GAMING_ADVICE.strip(),
+                "compliant": True
+            }, indent=2, ensure_ascii=False),
+            encoding="utf-8"
+        )
+
         if godot_export is not None:
             if godot_export.get("status") == "PASS":
                 print(f"  [GODOT PC] 独立包已就绪: {godot_export.get('export_path')}（Steam/itch 走原生打包）")

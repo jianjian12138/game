@@ -134,8 +134,11 @@ class VisualDiffEngine:
                 ]
             })
 
-        all_passed = all(r["passed"] for lc in layer_checks for r in lc["rules"])
-        
+        all_passed = all(r["passed"] for lc in layer_checks for r in lc["rules"]) if layer_checks else True
+
+        # 真·基准帧像素/直方图对比（Dream Loop 式目标图锚定闭环）
+        golden_diff = self._diff_vs_golden(live_capture_path)
+
         print("\n  --- 多层装配真理门禁审查明细 ---")
         for lc in layer_checks:
             print(f"  【{lc['component']}】")
@@ -143,16 +146,99 @@ class VisualDiffEngine:
                 flag = "[PASS]" if r["passed"] else "[FAIL]"
                 print(f"    {flag} {r['name']}")
 
-        verdict = "PASS" if all_passed else "FAIL"
-        print(f"\n  [VISUAL VERDICT] [{verdict}] (视觉真理多层图层全数对齐)\n=======================================================")
-        
+        golden_ok = golden_diff.get("status") == "PASS"
+        if golden_diff.get("status") == "SKIPPED":
+            print(f"  [GOLDEN DIFF] SKIPPED (无基准帧: 先 seed_golden_frame 或 generate_target_image 建立)")
+        else:
+            print(f"  [{'PASS' if golden_ok else 'WARN'}] 基准帧像素/直方图对比: "
+                  f"{golden_diff.get('verdict')} (暗色率Δ={golden_diff.get('dark_ratio_delta')}, "
+                  f"均值Δ={golden_diff.get('byte_mean_delta')})")
+
+        if not all_passed:
+            verdict = "FAIL"
+        elif not golden_ok:
+            verdict = "WARN"
+        else:
+            verdict = "PASS"
+        print(f"\n  [VISUAL VERDICT] [{verdict}] (视觉真理多层图层 / 基准帧对齐)\n=======================================================")
+
         return {
-            "status": "PASS" if all_passed else "FAIL",
+            "status": verdict,
             "verdict": verdict,
             "resolution": f"{w}x{h}",
             "stats": stats,
-            "layer_checks": layer_checks
+            "layer_checks": layer_checks,
+            "golden_diff": golden_diff
         }
+
+    # ── 真·视觉闭环新增能力（对应 Dream Loop：目标图锚定 + 截图追近） ──
+
+    def _find_golden(self, name: str) -> Optional[Path]:
+        for ext in (".png", ".jpg"):
+            c = self.golden_dir / f"{name}{ext}"
+            if c.exists():
+                return c
+        if name == "default":
+            imgs = sorted(self.golden_dir.glob("*.png")) + sorted(self.golden_dir.glob("*.jpg"))
+            if len(imgs) == 1:
+                return imgs[0]
+        return None
+
+    def _diff_vs_golden(self, live_path: Path, name: str = "default") -> Dict[str, Any]:
+        """将实机截图与 golden_dir 同名的基准帧做粗粒度像素/直方图差分。
+        纯标准库无法解码像素，故用 PNG 直方图(均值/暗色率) + 分辨率作为退化判据。"""
+        golden = self._find_golden(name)
+        if not golden:
+            return {"layer": "golden_frame_diff", "status": "SKIPPED",
+                    "reason": "NO_GOLDEN_FRAME", "verdict": "SKIPPED"}
+        gw, gh = SimplePngParser.read_png_dimensions(golden)
+        lw, lh = SimplePngParser.read_png_dimensions(live_path)
+        g_stat = SimplePngParser.compute_rgb_histogram(golden)
+        l_stat = SimplePngParser.compute_rgb_histogram(live_path)
+        res_match = (gw == lw and gh == lh)
+        dark_delta = abs(g_stat.get("dark_ratio", 0.0) - l_stat.get("dark_ratio", 0.0))
+        mean_delta = abs(g_stat.get("byte_mean", 0.0) - l_stat.get("byte_mean", 0.0))
+        pixel_ok = bool(res_match and dark_delta < 0.15 and mean_delta < 30)
+        return {
+            "layer": "golden_frame_diff",
+            "golden": str(golden),
+            "resolution_match": res_match,
+            "golden_resolution": f"{gw}x{gh}",
+            "live_resolution": f"{lw}x{lh}",
+            "dark_ratio_delta": round(dark_delta, 4),
+            "byte_mean_delta": round(mean_delta, 2),
+            "status": "PASS" if pixel_ok else "WARN",
+            "verdict": "MATCH" if pixel_ok else "VISUAL_DRIFT",
+        }
+
+    def seed_golden_frame(self, live_path: Path, name: str = "default") -> Dict[str, Any]:
+        """把首轮实机截图固化为基准帧（自举），后续迭代以此追近。"""
+        if not live_path.exists():
+            return {"status": "FAIL", "error": f"live capture 不存在: {live_path}"}
+        dst = self.golden_dir / f"{name}.png"
+        dst.write_bytes(live_path.read_bytes())
+        return {"status": "OK", "seeded": str(dst), "bytes": dst.stat().st_size}
+
+    def generate_target_image(self, prompt: str, name: str = "target",
+                              style: Any = None, seed: int = 123456789) -> Dict[str, Any]:
+        """用文生图生成目标参考图写入 golden_dir（Dream Loop 的 target image 锚定）。
+        无可用生图后端时诚实返回 NEEDS_RUNTIME_TOOL，不伪证。"""
+        try:
+            from pipeline.image_gen_adapter import ImageGenAdapter, ImageGenResult
+        except Exception as e:
+            return {"status": "FAIL", "error": f"image_gen_adapter 不可导入: {e}"}
+        adapter = ImageGenAdapter()
+        if not adapter.available_backends():
+            return {"status": "NEEDS_RUNTIME_TOOL", "needs_runtime_tool": "image_gen",
+                    "error": "无可用生图后端(云/ComfyUI 均未配置)，未伪证"}
+        res: ImageGenResult = adapter.generate(prompt, style=style, seed=seed)
+        if not res.ok:
+            return {"status": "FAIL", "error": res.error or res.status,
+                    "needs_runtime_tool": res.needs_runtime_tool}
+        dst = self.golden_dir / f"{name}.png"
+        dst.write_bytes(res.image_bytes)
+        return {"status": "OK", "target": str(dst), "backend": res.backend,
+                "provenance": res.provenance}
 
 if __name__ == "__main__":
     engine = VisualDiffEngine()

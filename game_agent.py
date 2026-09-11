@@ -185,6 +185,26 @@ def cmd_diff(args):
     cap_path = Path(args.capture) if args.capture else Path("output/mindustry_rust_full/mindustry_rust_live.png")
     engine.audit_capture_vs_ground_truth(cap_path)
 
+def cmd_taste(args):
+    from pipeline.taste_signal import TasteSignal
+    print("[TASTE] 启动玩家口味语料 -> 设计约束信号提取...")
+    if getattr(args, "fetch", False):
+        ext = TasteSignal.fetch_external(getattr(args, "platform", "taptap"))
+        print(f"  [EXTERNAL] status={ext['status']} -> {ext.get('error')}")
+        return
+    corpus = TasteSignal.load_corpus(args.corpus or None)
+    if corpus.get("status") != "OK":
+        print(f"  [CORPUS] {corpus.get('status')}: {corpus.get('error')}")
+        return
+    cons = TasteSignal.to_design_constraints(corpus)
+    print(f"  [CONSTRAINTS] avoid={len(cons['avoid'])} prefer={len(cons['prefer'])} "
+          f"pacing={len(cons['pacing'])} sources={cons['source_count']}")
+    if getattr(args, "attach", None):
+        injected = TasteSignal.attach_to_prompt(cons, args.attach)
+        print("\n--- 注入后的提示词 ---\n" + injected)
+    else:
+        print(json.dumps(cons, ensure_ascii=False, indent=2))
+
 def cmd_reverse(args):
     from pipeline.ground_truth_reverser import GroundTruthReverser
     src_p = Path(args.source) if args.source else Path(str(Path.cwd() / "Mindustry"))
@@ -1884,6 +1904,90 @@ def cmd_agent_run(args):
     print("  --- payload ---")
     print(_json.dumps(out.payload, ensure_ascii=False, indent=2))
 
+def cmd_list_parts(args):
+    """查询 Ford-T 零件库全部 35 个工业机制零件。"""
+    from core.ford_t_game_parts_hub import ModularGameAssembler
+    assembler = ModularGameAssembler()
+    catalog = assembler.catalog
+
+    print("================================================================")
+    print(f"FORD-T GAME PARTS CATALOG - {len(catalog)} PRE-FABRICATED PARTS")
+    print("================================================================")
+
+    categories = {}
+    for key, part in catalog.items():
+        cat = getattr(part, "category", "CORE")
+        categories.setdefault(cat, []).append((key, part.name))
+
+    for cat, items in sorted(categories.items()):
+        print(f"\n[{cat}] ({len(items)} parts):")
+        for key, name in sorted(items):
+            print(f"  - {key:<20} -> {name}")
+    print("\n================================================================")
+    return 0
+
+def cmd_assemble(args):
+    """根据指定零件组合模块化装配新游戏架构。"""
+    from core.ford_t_game_parts_hub import ModularGameAssembler
+    assembler = ModularGameAssembler()
+    parts = [p.strip() for p in args.parts.split(",") if p.strip()]
+    try:
+        res = assembler.assemble(title=args.title, selected_part_keys=parts)
+        print(f"SUCCESS: Assembled game '{res['title']}' with {res['parts_count']} parts:")
+        for p in res["active_parts"]:
+            print(f"  [+] Mounted: {p}")
+        return 0
+    except KeyError as e:
+        print(f"ASSEMBLY ERROR: {e}")
+        return 1
+
+def cmd_templates(args):
+    """列出内置参考游戏骨架模板。"""
+    print("================================================================")
+    print("AI-NATIVE PLAYABLE ARCHETYPE TEMPLATES")
+    print("================================================================")
+    print("1. Card Roguelike (Spire-like):")
+    print("   Engine: templates/card_roguelike/card_game_engine.py")
+    print("   HTML5:  templates/card_roguelike/index.html")
+    print("2. Survivor Danmaku (Bullet Hell):")
+    print("   Engine: templates/survivor_danmaku/danmaku_engine.py")
+    print("   HTML5:  templates/survivor_danmaku/index.html")
+    print("================================================================")
+    return 0
+
+def cmd_wechat_pack(args):
+    """一键将游戏模板打包为合规微信小游戏工程。"""
+    from pipeline.wechat_packager import WeChatPackager
+    tpl_map = {
+        "survivor": "templates/survivor_danmaku/index.html",
+        "danmaku": "templates/survivor_danmaku/index.html",
+        "survivor_danmaku": "templates/survivor_danmaku/index.html",
+        "card": "templates/card_roguelike/index.html",
+        "card_roguelike": "templates/card_roguelike/index.html",
+    }
+    src = tpl_map.get(args.template.lower())
+    if not src:
+        src_path = Path(args.template)
+        if not src_path.exists():
+            print(f"Error: Template or file '{args.template}' not found.")
+            return 1
+    else:
+        src_path = ROOT / src
+
+    out_dir = Path(args.out)
+    packager = WeChatPackager()
+    res = packager.bundle(
+        src_path,
+        out_dir,
+        project_name=args.name,
+        orientation=args.orientation
+    )
+    print("SUCCESS: WeChat Mini-Game bundled:")
+    print(f"  Target: {res['output_dir']}")
+    print(f"  Size:   {res['size_mb']}MB / {res['max_mb']}MB (Compliant: {res['compliant']})")
+    print(f"  Files:  {', '.join(res['files_generated'])}")
+    return 0
+
 # 命令 -> 处理函数。任一命令都必须经此表派发，
 # 由 RunService.dispatch_tool 统一写入审计链，杜绝绕过契约与发布门禁的旁路调用。
 COMMAND_TABLE = {
@@ -1922,8 +2026,11 @@ COMMAND_TABLE = {
     "asset-verify": cmd_asset_verify,
     "asset-audio": cmd_asset_audio, "asset-audio-verify": cmd_asset_audio_verify,
     "playtest": cmd_playtest,
-    "vertical-slices": cmd_vertical_slices,
-    "autonomous": cmd_autonomous,
+    "taste": cmd_taste,
+    "list-parts": cmd_list_parts,
+    "assemble": cmd_assemble,
+    "templates": cmd_templates,
+    "wechat-pack": cmd_wechat_pack,
 }
 
 
@@ -1986,6 +2093,12 @@ def main():
 
     p_diff = sub.add_parser("diff", help="执行像素级视觉真理与多层图层装配审查")
     p_diff.add_argument("--capture", type=str, default="", help="待测实机截图路径")
+
+    p_taste = sub.add_parser("taste", help="玩家口味语料->设计约束信号提取(对应《把AI游戏流程录成Skill》)")
+    p_taste.add_argument("--corpus", type=str, default="", help="玩家口味语料 JSON 路径(缺省 knowledge/player_taste_spec.json)")
+    p_taste.add_argument("--attach", type=str, default=None, help="把约束注入到该提示词并回显")
+    p_taste.add_argument("--fetch", action="store_true", help="尝试外部实时采集(默认 NEEDS_NETWORK，不伪装爬取)")
+    p_taste.add_argument("--platform", type=str, default="taptap", help="外部采集平台(taptap/steam)")
 
     p_reverse = sub.add_parser("reverse", help="执行官方参考源码逆向与时钟常量冻结")
     p_reverse.add_argument("--source", type=str, default="", help="参考源码目录")
@@ -2354,6 +2467,25 @@ def main():
                          choices=["local", "platform"],
                          help="运行模式：local=本地开发（不要求任何渠道/线上配置，缺省）；"
                               "platform=平台对接（要求渠道凭据+三类沙箱+Staging+遥测齐全，缺即阻断）")
+
+    # list-parts
+    sub.add_parser("list-parts", help="查看 Ford-T 零件库全部 35 个工业机制零件")
+
+    # assemble
+    p_ass = sub.add_parser("assemble", help="根据指定零件组合模块化装配新游戏架构")
+    p_ass.add_argument("title", help="游戏名称")
+    p_ass.add_argument("--parts", required=True, help="逗号分隔的零件 key 列表")
+
+    # templates
+    sub.add_parser("templates", help="列出内置可玩游戏骨架模板")
+
+    # wechat-pack
+    p_wxp = sub.add_parser("wechat-pack", help="一键打包微信小游戏工程 (带 4MB 分包预检)")
+    p_wxp.add_argument("--template", default="survivor_danmaku", help="模板名称 (survivor_danmaku, card_roguelike) 或 HTML 文件路径")
+    p_wxp.add_argument("--out", default="dist/wechat", help="输出目录")
+    p_wxp.add_argument("--name", default="antigravity-wechat-game", help="项目工程名称")
+    p_wxp.add_argument("--orientation", default="portrait", choices=["portrait", "landscape"], help="屏幕方向")
+    p_wxp.add_argument("--run-id", dest="run_id", type=str, default="", help="关联运行沙箱 ID")
 
     args = parser.parse_args()
     # 所有旧工具统一经过 RunService 审计入口，避免任何命令旁路契约与发布门禁

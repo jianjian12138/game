@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "note": "结构化玩家口味种子语料（人工整理代表性样本，非实时爬取）。每条含 signal(avoid/prefer/pacing)、constraint、source。外部实时采集见 pipeline/taste_signal.py:fetch_external（默认 NEEDS_NETWORK，不伪装爬取）。",
+  "entries": [
+    {"signal": "avoid", "constraint": "经营到后期只剩重复操作（纯挂机/数值堆砌），缺少持续向下的新目标", "source": "TapTap《心动小镇》差评区"},
+    {"signal": "prefer", "constraint": "自由布置+慢慢经营的掌控感与渐进解锁，是玩家上头点", "source": "TapTap《心动小镇》好评区"},
+    {"signal": "avoid", "constraint": "强制广告打断核心循环、逼氪感知强", "source": "Steam 中文评测区"},
+    {"signal": "prefer", "constraint": "失败可逆、随时重试、低挫败感的爽快循环", "source": "玩家调研汇总"},
+    {"signal": "pacing", "constraint": "前 30 秒给出正反馈，首局即玩，后续用轻量养成拉长生命周期", "source": "手游留存经验"},
+    {"signal": "avoid", "constraint": "数值膨胀导致后期数值崩坏、平衡失控", "source": "Roguelike 评测区"},
+    {"signal": "prefer", "constraint": "有可见的成长反馈（升级、外观、排行）而非纯数字堆叠", "source": "玩家调研汇总"},
+    {"signal": "pacing", "constraint": "单次会话目标明确、5-10 分钟一局，适合碎片时间", "source": "休闲游戏评测区"}
+  ]
+}
